@@ -17,8 +17,9 @@ import { FHERC20Utils } from "../FHERC20/utils/FHERC20Utils.sol";
 import { FHERC20WrapperClaimHelperUpgradeable } from "../FHERC20/utils/FHERC20WrapperClaimHelperUpgradeable.sol";
 
 /**
- * @title ERC20Confidential
- * @dev Extension of ERC-20 to support a second, confidential (FHE-encrypted) balance layer.
+ * @title ERC20ConfidentialUpgradeable
+ * @dev Upgradeable variant of {ERC20Confidential}: an ERC-20 extended with a second,
+ * confidential (FHE-encrypted) balance layer, deployable behind a proxy.
  *
  * This contract provides dual-balance functionality:
  * - Standard ERC-20 balances and transfers (public)
@@ -29,6 +30,11 @@ import { FHERC20WrapperClaimHelperUpgradeable } from "../FHERC20/utils/FHERC20Wr
  * The unshield flow is asynchronous: {unshield} burns confidential tokens and makes the
  * encrypted amount publicly decryptable, then {claimUnshielded} verifies the decryption
  * proof and transfers public tokens from the pool.
+ *
+ * Upgradeable specifics: state lives in an ERC-7201 namespaced storage struct
+ * ({ERC20ConfidentialStorage}) to keep the layout collision-free across upgrades, and the
+ * contract is set up through {__ERC20Confidential_init} (the initializer pattern) instead of a
+ * constructor.
  */
 abstract contract ERC20ConfidentialUpgradeable is
     Initializable,
@@ -43,7 +49,6 @@ abstract contract ERC20ConfidentialUpgradeable is
     struct ERC20ConfidentialStorage {
         mapping(address => euint64) _confidentialBalances;
         mapping(address => mapping(address => uint48)) _operators;
-        euint64 _confidentialTotalSupply;
         ERC20ConfidentialIndicator _indicatorToken;
         uint8 _decimals;
         uint8 _confidentialDecimals;
@@ -137,10 +142,11 @@ abstract contract ERC20ConfidentialUpgradeable is
         return 0;
     }
 
-    /// @dev Pegged to {CONFIDENTIAL_POOL}'s public balance, refreshed by {_update} whenever
-    /// public tokens enter or leave the pool. Made publicly decryptable.
+    /// @dev Derived on read from {CONFIDENTIAL_POOL}'s public balance, scaled to confidential
+    /// decimals. The returned handle is not a registered ciphertext, so it is informational
+    /// only and cannot be decrypted or used in FHE operations.
     function confidentialTotalSupply() public view virtual returns (euint64) {
-        return _getERC20ConfidentialStorage()._confidentialTotalSupply;
+        return euint64.wrap(bytes32(balanceOf(CONFIDENTIAL_POOL) / _rate()));
     }
 
     function confidentialBalanceOf(address account) public view virtual returns (euint64) {
@@ -304,18 +310,6 @@ abstract contract ERC20ConfidentialUpgradeable is
     // =========================================================================
     //  Internal helpers
     // =========================================================================
-
-    /// @dev Refresh {_confidentialTotalSupply} whenever public tokens enter or leave the pool.
-    function _update(address from, address to, uint256 value) internal virtual override {
-        super._update(from, to, value);
-
-        if (to == CONFIDENTIAL_POOL || from == CONFIDENTIAL_POOL) {
-            euint64 newSupply = FHE.asEuint64(SafeCast.toUint64(balanceOf(CONFIDENTIAL_POOL) / _rate()));
-            FHE.allowThis(newSupply);
-            FHE.allowPublic(newSupply);
-            _getERC20ConfidentialStorage()._confidentialTotalSupply = newSupply;
-        }
-    }
 
     function _confidentialTransfer(
         address from,

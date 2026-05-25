@@ -84,7 +84,8 @@ describe("ERC20ConfidentialUpgradeable", function () {
       await token.mint(bob.address, 1_000_000n);
       await token.connect(bob).shield(1_000_000n);
 
-      await hre.cofhe.mocks.expectPlaintext(await token.confidentialTotalSupply(), 1_000_000n);
+      // confidentialTotalSupply() is a derived placeholder — assert on the pool's public balance instead.
+      expect(await token.balanceOf(await token.CONFIDENTIAL_POOL())).to.equal(1_000_000n);
       await hre.cofhe.mocks.expectPlaintext(await token.confidentialBalanceOf(bob.address), 1_000_000n);
     });
 

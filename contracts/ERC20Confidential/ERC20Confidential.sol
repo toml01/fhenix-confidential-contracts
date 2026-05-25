@@ -33,7 +33,6 @@ abstract contract ERC20Confidential is ERC20, ERC165, IERC20Confidential, FHERC2
 
     mapping(address => euint64) private _confidentialBalances;
     mapping(address => mapping(address => uint48)) private _operators;
-    euint64 private _confidentialTotalSupply;
 
     ERC20ConfidentialIndicator public immutable indicatorToken;
 
@@ -99,10 +98,11 @@ abstract contract ERC20Confidential is ERC20, ERC165, IERC20Confidential, FHERC2
         return 0;
     }
 
-    /// @dev Pegged to {CONFIDENTIAL_POOL}'s public balance, refreshed by {_update} whenever
-    /// public tokens enter or leave the pool. Made publicly decryptable.
+    /// @dev Derived on read from {CONFIDENTIAL_POOL}'s public balance, scaled to confidential
+    /// decimals. The returned handle is not a registered ciphertext, so it is informational
+    /// only and cannot be decrypted or used in FHE operations.
     function confidentialTotalSupply() public view virtual returns (euint64) {
-        return _confidentialTotalSupply;
+        return euint64.wrap(bytes32(balanceOf(CONFIDENTIAL_POOL) / _rate()));
     }
 
     function confidentialBalanceOf(address account) public view virtual returns (euint64) {
@@ -266,18 +266,6 @@ abstract contract ERC20Confidential is ERC20, ERC165, IERC20Confidential, FHERC2
     // =========================================================================
     //  Internal helpers
     // =========================================================================
-
-    /// @dev Refresh {_confidentialTotalSupply} whenever public tokens enter or leave the pool.
-    function _update(address from, address to, uint256 value) internal virtual override {
-        super._update(from, to, value);
-
-        if (to == CONFIDENTIAL_POOL || from == CONFIDENTIAL_POOL) {
-            euint64 newSupply = FHE.asEuint64(SafeCast.toUint64(balanceOf(CONFIDENTIAL_POOL) / _rate()));
-            FHE.allowThis(newSupply);
-            FHE.allowPublic(newSupply);
-            _confidentialTotalSupply = newSupply;
-        }
-    }
 
     function _confidentialTransfer(
         address from,

@@ -227,10 +227,12 @@ export function shouldBehaveLikeERC20Confidential(
     });
   });
 
+  // confidentialTotalSupply() is a derived placeholder handle, so these assert on the pool's public
+  // balance — the real source of truth that backs the confidential supply.
   describe("Confidential Total Supply", function () {
-    it("Should be the zero handle initially", async function () {
+    it("Should hold no public tokens in the pool initially", async function () {
       const { token } = await setupFixture();
-      expect(await token.confidentialTotalSupply()).to.equal(ethers.ZeroHash);
+      expect(await token.balanceOf(await token.CONFIDENTIAL_POOL())).to.equal(0n);
     });
 
     it("Should equal the shielded amount after a single shield", async function () {
@@ -240,7 +242,7 @@ export function shouldBehaveLikeERC20Confidential(
       await token.mint(bob.address, shieldAmount);
       await token.connect(bob).shield(shieldAmount);
 
-      await hre.cofhe.mocks.expectPlaintext(await token.confidentialTotalSupply(), BigInt(10 * 1e6));
+      expect(await token.balanceOf(await token.CONFIDENTIAL_POOL())).to.equal(shieldAmount);
     });
 
     it("Should accumulate across shields by different users", async function () {
@@ -250,10 +252,10 @@ export function shouldBehaveLikeERC20Confidential(
       await token.mint(alice.address, ethers.parseEther("5"));
 
       await token.connect(bob).shield(ethers.parseEther("10"));
-      await hre.cofhe.mocks.expectPlaintext(await token.confidentialTotalSupply(), BigInt(10 * 1e6));
+      expect(await token.balanceOf(await token.CONFIDENTIAL_POOL())).to.equal(ethers.parseEther("10"));
 
       await token.connect(alice).shield(ethers.parseEther("5"));
-      await hre.cofhe.mocks.expectPlaintext(await token.confidentialTotalSupply(), BigInt(15 * 1e6));
+      expect(await token.balanceOf(await token.CONFIDENTIAL_POOL())).to.equal(ethers.parseEther("15"));
     });
 
     it("Should be unchanged by unshield until the claim settles", async function () {
@@ -263,14 +265,13 @@ export function shouldBehaveLikeERC20Confidential(
       await token.mint(bob.address, initialAmount);
       await token.connect(bob).shield(initialAmount);
 
-      const supplyBefore = BigInt(100 * 1e6);
-      await hre.cofhe.mocks.expectPlaintext(await token.confidentialTotalSupply(), supplyBefore);
+      expect(await token.balanceOf(await token.CONFIDENTIAL_POOL())).to.equal(initialAmount);
 
       const unshieldAmount = BigInt(50 * 1e6);
       const tx = await token.connect(bob)["unshield(uint64)"](unshieldAmount);
 
-      // Pool still holds the public tokens — supply should be unchanged.
-      await hre.cofhe.mocks.expectPlaintext(await token.confidentialTotalSupply(), supplyBefore);
+      // Pool still holds the public tokens — balance should be unchanged until the claim settles.
+      expect(await token.balanceOf(await token.CONFIDENTIAL_POOL())).to.equal(initialAmount);
 
       const requestId = await getUnshieldRequestId(tx, token);
       await hre.network.provider.send("evm_increaseTime", [11]);
@@ -279,8 +280,9 @@ export function shouldBehaveLikeERC20Confidential(
       const decryption = await bobClient.decryptForTx(requestId).withoutPermit().execute();
       await token.connect(bob).claimUnshielded(requestId, decryption.decryptedValue, decryption.signature);
 
-      // Claim drains the pool — supply now reflects the burn.
-      await hre.cofhe.mocks.expectPlaintext(await token.confidentialTotalSupply(), supplyBefore - unshieldAmount);
+      // Claim drains the pool — unshieldAmount is in confidential units, scale it to public units.
+      const rate = 10n ** (BigInt(await token.decimals()) - BigInt(await token.confidentialDecimals()));
+      expect(await token.balanceOf(await token.CONFIDENTIAL_POOL())).to.equal(initialAmount - unshieldAmount * rate);
     });
   });
 
