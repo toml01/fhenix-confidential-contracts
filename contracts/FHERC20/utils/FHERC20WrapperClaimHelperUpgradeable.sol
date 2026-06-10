@@ -45,6 +45,8 @@ abstract contract FHERC20WrapperClaimHelperUpgradeable is Initializable {
     error ClaimNotFound();
     error AlreadyClaimed();
     error LengthMismatch();
+    /// @dev A claim already exists for this ciphertext handle (see {_createClaim}).
+    error ClaimAlreadyExists();
 
     function __FHERC20WrapperClaimHelper_init() internal onlyInitializing {}
 
@@ -53,6 +55,12 @@ abstract contract FHERC20WrapperClaimHelperUpgradeable is Initializable {
     function _createClaim(address to, uint64 requestedAmount, euint64 claimable) internal {
         FHERC20WrapperClaimHelperStorage storage $ = _getFHERC20WrapperClaimHelperStorage();
         bytes32 unwrappedHash = FHE.unwrap(claimable);
+        // H-01 guard: CoFHE ciphertext handles are content-addressed, so two unshields with
+        // identical computation graphs produce the SAME burned handle. Because claims are keyed by
+        // that handle, a second create would silently overwrite the first and strand its funds.
+        // Revert on collision so the (rare) colliding unshield fails loudly instead of overwriting a
+        // live or finalized claim. cf. OpenZeppelin's ERC7984 wrapper assert on the unwrap handle.
+        if ($._claims[unwrappedHash].to != address(0)) revert ClaimAlreadyExists();
         $._claims[unwrappedHash] = Claim({
             to: to,
             ctHash: unwrappedHash,
