@@ -187,13 +187,13 @@ abstract contract ERC20ConfidentialUpgradeable is
         return _unshield(amount, 0);
     }
 
-    function claimUnshielded(bytes32 ctHash, uint64 decryptedAmount, bytes calldata decryptionProof) public virtual {
-        Claim memory claim = _handleClaim(ctHash, decryptedAmount, decryptionProof);
+    function claimUnshielded(bytes32 claimId, uint64 decryptedAmount, bytes calldata decryptionProof) public virtual {
+        Claim memory claim = _handleClaim(claimId, decryptedAmount, decryptionProof);
 
         uint256 amountPublic = uint256(claim.decryptedAmount) * _rate();
         _transfer(CONFIDENTIAL_POOL, claim.to, amountPublic);
 
-        emit UnshieldedTokensClaimed(claim.to, ctHash, FHE.wrapEuint64(ctHash), claim.decryptedAmount);
+        emit UnshieldedTokensClaimed(claim.to, claimId, FHE.wrapEuint64(claim.ctHash), claim.decryptedAmount);
     }
 
     // =========================================================================
@@ -336,8 +336,8 @@ abstract contract ERC20ConfidentialUpgradeable is
     function _unshield(euint64 amount, uint64 requestedAmount) internal virtual returns (euint64 burned) {
         burned = _confidentialUpdate(msg.sender, address(0), amount);
         FHE.allowPublic(burned);
-        _createClaim(msg.sender, requestedAmount, burned);
-        emit TokensUnshielded(msg.sender, burned);
+        bytes32 claimId = _createClaim(msg.sender, requestedAmount, burned);
+        emit TokensUnshielded(msg.sender, claimId, burned);
     }
 
     function _confidentialUpdate(

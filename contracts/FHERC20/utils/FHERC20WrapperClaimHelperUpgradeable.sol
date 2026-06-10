@@ -22,10 +22,16 @@ abstract contract FHERC20WrapperClaimHelperUpgradeable is Initializable {
         bool claimed;
     }
 
+    // @dev Claims are keyed by a unique `claimId`, NOT by the burned ciphertext handle.
+    // CoFHE handles are content-addressed, so identical operations across users yield identical
+    // handles; keying on the raw handle let a later claim overwrite an earlier one and strand
+    // funds (audit finding H-01). `_claimNonce` is appended to the END of the namespaced struct
+    // for upgrade safety.
     /// @custom:storage-location erc7201:fherc20.storage.FHERC20WrapperClaimHelper
     struct FHERC20WrapperClaimHelperStorage {
-        mapping(bytes32 ctHash => Claim) _claims;
+        mapping(bytes32 claimId => Claim) _claims;
         mapping(address => EnumerableSet.Bytes32Set) _userClaims;
+        uint256 _claimNonce;
     }
 
     // keccak256(abi.encode(uint256(keccak256("fherc20.storage.FHERC20WrapperClaimHelper")) - 1)) & ~bytes32(uint256(0xff))
@@ -50,64 +56,68 @@ abstract contract FHERC20WrapperClaimHelperUpgradeable is Initializable {
 
     function __FHERC20WrapperClaimHelper_init_unchained() internal onlyInitializing {}
 
-    function _createClaim(address to, uint64 requestedAmount, euint64 claimable) internal {
+    /// @dev Creates a pending claim and returns its unique `claimId`. Callers MUST surface this
+    /// id (e.g. via an event) so the claim can later be finalized via {_handleClaim}.
+    function _createClaim(address to, uint64 requestedAmount, euint64 claimable) internal returns (bytes32 claimId) {
         FHERC20WrapperClaimHelperStorage storage $ = _getFHERC20WrapperClaimHelperStorage();
         bytes32 unwrappedHash = FHE.unwrap(claimable);
-        $._claims[unwrappedHash] = Claim({
+        claimId = keccak256(abi.encode(unwrappedHash, to, $._claimNonce++));
+        $._claims[claimId] = Claim({
             to: to,
             ctHash: unwrappedHash,
             requestedAmount: requestedAmount,
             decryptedAmount: 0,
             claimed: false
         });
-        $._userClaims[to].add(unwrappedHash);
+        $._userClaims[to].add(claimId);
     }
 
     function _handleClaim(
-        bytes32 ctHash,
+        bytes32 claimId,
         uint64 decryptedAmount,
         bytes memory decryptionProof
     ) internal returns (Claim memory claim) {
         FHERC20WrapperClaimHelperStorage storage $ = _getFHERC20WrapperClaimHelperStorage();
-        claim = $._claims[ctHash];
+        claim = $._claims[claimId];
 
         if (claim.to == address(0)) revert ClaimNotFound();
         if (claim.claimed) revert AlreadyClaimed();
 
-        FHE.verifyDecryptResult(FHE.wrapEuint64(ctHash), decryptedAmount, decryptionProof);
+        // Verify against the real burned handle stored in the claim, not the lookup key.
+        FHE.verifyDecryptResult(FHE.wrapEuint64(claim.ctHash), decryptedAmount, decryptionProof);
 
         claim.decryptedAmount = decryptedAmount;
         claim.claimed = true;
 
-        $._claims[ctHash] = claim;
-        $._userClaims[claim.to].remove(ctHash);
+        $._claims[claimId] = claim;
+        $._userClaims[claim.to].remove(claimId);
     }
 
     function _handleClaimBatch(
-        bytes32[] memory ctHashes,
+        bytes32[] memory claimIds,
         uint64[] memory decryptedAmounts,
         bytes[] memory decryptionProofs
     ) internal returns (Claim[] memory claims) {
-        if (ctHashes.length != decryptedAmounts.length || ctHashes.length != decryptionProofs.length) {
+        if (claimIds.length != decryptedAmounts.length || claimIds.length != decryptionProofs.length) {
             revert LengthMismatch();
         }
 
-        claims = new Claim[](ctHashes.length);
-        for (uint256 i = 0; i < ctHashes.length; i++) {
-            claims[i] = _handleClaim(ctHashes[i], decryptedAmounts[i], decryptionProofs[i]);
+        claims = new Claim[](claimIds.length);
+        for (uint256 i = 0; i < claimIds.length; i++) {
+            claims[i] = _handleClaim(claimIds[i], decryptedAmounts[i], decryptionProofs[i]);
         }
     }
 
-    function getClaim(bytes32 ctHash) public view returns (Claim memory) {
-        return _getFHERC20WrapperClaimHelperStorage()._claims[ctHash];
+    function getClaim(bytes32 claimId) public view returns (Claim memory) {
+        return _getFHERC20WrapperClaimHelperStorage()._claims[claimId];
     }
 
     function getUserClaims(address user) public view returns (Claim[] memory userClaims) {
         FHERC20WrapperClaimHelperStorage storage $ = _getFHERC20WrapperClaimHelperStorage();
-        bytes32[] memory ctHashes = $._userClaims[user].values();
-        userClaims = new Claim[](ctHashes.length);
-        for (uint256 i = 0; i < ctHashes.length; i++) {
-            userClaims[i] = $._claims[ctHashes[i]];
+        bytes32[] memory claimIds = $._userClaims[user].values();
+        userClaims = new Claim[](claimIds.length);
+        for (uint256 i = 0; i < claimIds.length; i++) {
+            userClaims[i] = $._claims[claimIds[i]];
         }
     }
 }

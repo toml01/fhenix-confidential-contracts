@@ -9,16 +9,19 @@ import {
 } from "./utils";
 import { ZeroAddress, ContractTransactionResponse } from "ethers";
 
-async function getUnshieldRequestId(
+// Returns the unique `claimId` (passed to claimUnshielded / getClaim) and the burned ciphertext
+// `handle` (used off-chain with decryptForTx). Claims are keyed by claimId, not the raw handle
+// (audit finding H-01), so these are distinct values.
+async function getUnshieldRequest(
   tx: ContractTransactionResponse,
   contract: FHERC20ERC20Wrapper_Harness,
-): Promise<string> {
+): Promise<{ claimId: string; handle: string }> {
   const receipt = await tx.wait();
   for (const log of receipt!.logs) {
     try {
       const parsed = contract.interface.parseLog({ topics: log.topics as string[], data: log.data });
       if (parsed?.name === "Unshielded") {
-        return parsed.args.amount;
+        return { claimId: parsed.args.claimId, handle: parsed.args.amount };
       }
     } catch {}
   }
@@ -189,34 +192,34 @@ describe("FHERC20ERC20Wrapper", function () {
       await expect(tx).to.emit(eBTC, "Unshielded");
       await expectFHERC20BalancesChange(eBTC, bob.address, -1n * unshieldConfidentialValue);
 
-      const unshieldRequestId = await getUnshieldRequestId(tx, eBTC);
+      const { claimId, handle } = await getUnshieldRequest(tx, eBTC);
 
       // Verify claim was created via getClaim
-      const pendingClaim = await eBTC.getClaim(unshieldRequestId);
+      const pendingClaim = await eBTC.getClaim(claimId);
       expect(pendingClaim.to).to.equal(alice.address);
       expect(pendingClaim.claimed).to.equal(false);
 
       // Verify getUserClaims tracks the pending claim
       const aliceClaims = await eBTC.getUserClaims(alice.address);
       expect(aliceClaims.length).to.equal(1);
-      expect(aliceClaims[0].ctHash).to.equal(unshieldRequestId);
+      expect(aliceClaims[0].ctHash).to.equal(handle);
 
       // Time travel past decryption delay
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await bobClient.decryptForTx(unshieldRequestId).withoutPermit().execute();
+      const decryption = await bobClient.decryptForTx(handle).withoutPermit().execute();
 
       await prepExpectERC20BalancesChange(wBTC, alice.address);
 
       await expect(
-        eBTC.connect(bob).claimUnshielded(unshieldRequestId, decryption.decryptedValue, decryption.signature),
+        eBTC.connect(bob).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature),
       ).to.emit(eBTC, "ClaimedUnshielded");
 
       await expectERC20BalancesChange(wBTC, alice.address, unshieldERC20Value);
 
       // Claim is marked as claimed and removed from user's pending claims
-      const claimedClaim = await eBTC.getClaim(unshieldRequestId);
+      const claimedClaim = await eBTC.getClaim(claimId);
       expect(claimedClaim.claimed).to.equal(true);
 
       const aliceClaimsAfter = await eBTC.getUserClaims(alice.address);
@@ -239,16 +242,16 @@ describe("FHERC20ERC20Wrapper", function () {
       await expect(tx).to.emit(eBTC, "Unshielded");
       await expectFHERC20BalancesChange(eBTC, bob.address, -1n * unshieldConfidentialValue);
 
-      const unshieldRequestId = await getUnshieldRequestId(tx, eBTC);
+      const { claimId, handle } = await getUnshieldRequest(tx, eBTC);
 
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await aliceClient.decryptForTx(unshieldRequestId).withoutPermit().execute();
+      const decryption = await aliceClient.decryptForTx(handle).withoutPermit().execute();
 
       await prepExpectERC20BalancesChange(wBTC, alice.address);
 
-      await eBTC.connect(alice).claimUnshielded(unshieldRequestId, decryption.decryptedValue, decryption.signature);
+      await eBTC.connect(alice).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature);
 
       await expectERC20BalancesChange(wBTC, alice.address, unshieldERC20Value);
     });
@@ -261,11 +264,11 @@ describe("FHERC20ERC20Wrapper", function () {
 
       // Create first unshield
       const tx1 = await eBTC.connect(bob)["unshield(address,address,uint64)"](bob.address, alice.address, unshieldAmount1);
-      const requestId1 = await getUnshieldRequestId(tx1, eBTC);
+      const req1 = await getUnshieldRequest(tx1, eBTC);
 
       // Create second unshield
       const tx2 = await eBTC.connect(bob)["unshield(address,address,uint64)"](bob.address, alice.address, unshieldAmount2);
-      const requestId2 = await getUnshieldRequestId(tx2, eBTC);
+      const req2 = await getUnshieldRequest(tx2, eBTC);
 
       // Alice should have 2 pending claims
       const pendingClaims = await eBTC.getUserClaims(alice.address);
@@ -274,15 +277,15 @@ describe("FHERC20ERC20Wrapper", function () {
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const dec1 = await bobClient.decryptForTx(requestId1).withoutPermit().execute();
-      const dec2 = await bobClient.decryptForTx(requestId2).withoutPermit().execute();
+      const dec1 = await bobClient.decryptForTx(req1.handle).withoutPermit().execute();
+      const dec2 = await bobClient.decryptForTx(req2.handle).withoutPermit().execute();
 
       await prepExpectERC20BalancesChange(wBTC, alice.address);
 
       await eBTC
         .connect(bob)
         .claimUnshieldedBatch(
-          [requestId1, requestId2],
+          [req1.claimId, req2.claimId],
           [dec1.decryptedValue, dec2.decryptedValue],
           [dec1.signature, dec2.signature],
         );
@@ -318,10 +321,10 @@ describe("FHERC20ERC20Wrapper", function () {
       await expect(tx).to.emit(eBTC, "Unshielded");
       await expectFHERC20BalancesChange(eBTC, bob.address, -1n * unshieldConfidentialValue);
 
-      const unshieldRequestId = await getUnshieldRequestId(tx, eBTC);
+      const { claimId, handle } = await getUnshieldRequest(tx, eBTC);
 
       // Verify claim was created via getClaim
-      const pendingClaim = await eBTC.getClaim(unshieldRequestId);
+      const pendingClaim = await eBTC.getClaim(claimId);
       expect(pendingClaim.to).to.equal(alice.address);
       expect(pendingClaim.requestedAmount).to.equal(0n);
       expect(pendingClaim.claimed).to.equal(false);
@@ -329,18 +332,18 @@ describe("FHERC20ERC20Wrapper", function () {
       // Verify getUserClaims tracks the pending claim
       const aliceClaims = await eBTC.getUserClaims(alice.address);
       expect(aliceClaims.length).to.equal(1);
-      expect(aliceClaims[0].ctHash).to.equal(unshieldRequestId);
+      expect(aliceClaims[0].ctHash).to.equal(handle);
 
       // Time travel past decryption delay
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await bobClient.decryptForTx(unshieldRequestId).withoutPermit().execute();
+      const decryption = await bobClient.decryptForTx(handle).withoutPermit().execute();
 
       await prepExpectERC20BalancesChange(wBTC, alice.address);
 
       await expect(
-        eBTC.connect(bob).claimUnshielded(unshieldRequestId, decryption.decryptedValue, decryption.signature),
+        eBTC.connect(bob).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature),
       ).to.emit(eBTC, "ClaimedUnshielded");
 
       await expectERC20BalancesChange(wBTC, alice.address, unshieldERC20Value);
@@ -403,19 +406,19 @@ describe("FHERC20ERC20Wrapper", function () {
       await eBTC.connect(bob).shield(bob, mintValue);
 
       const tx = await eBTC.connect(bob)["unshield(address,address,uint64)"](bob.address, alice.address, 1_000_000n);
-      const requestId = await getUnshieldRequestId(tx, eBTC);
+      const { claimId, handle } = await getUnshieldRequest(tx, eBTC);
 
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await bobClient.decryptForTx(requestId).withoutPermit().execute();
+      const decryption = await bobClient.decryptForTx(handle).withoutPermit().execute();
 
       // First claim succeeds
-      await eBTC.connect(bob).claimUnshielded(requestId, decryption.decryptedValue, decryption.signature);
+      await eBTC.connect(bob).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature);
 
       // Second claim reverts
       await expect(
-        eBTC.connect(bob).claimUnshielded(requestId, decryption.decryptedValue, decryption.signature),
+        eBTC.connect(bob).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature),
       ).to.be.revertedWithCustomError(eBTC, "AlreadyClaimed");
     });
   });

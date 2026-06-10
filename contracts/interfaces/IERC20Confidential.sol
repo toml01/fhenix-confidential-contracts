@@ -18,8 +18,10 @@ interface IERC20Confidential is IFHERC20 {
     /// @dev Emitted when tokens are shielded (converted from public to confidential).
     event TokensShielded(address indexed account, uint256 amount);
 
-    /// @dev Emitted when an unshield request is created.
-    event TokensUnshielded(address indexed account, euint64 indexed amount);
+    /// @dev Emitted when an unshield request is created. `claimId` is the unique identifier to
+    /// pass to {claimUnshielded}; `amount` is the burned ciphertext handle (used off-chain to
+    /// obtain the decryption proof).
+    event TokensUnshielded(address indexed account, bytes32 indexed claimId, euint64 indexed amount);
 
     /// @dev Emitted when an unshield request is claimed (public tokens transferred).
     event UnshieldedTokensClaimed(
@@ -57,5 +59,5 @@ interface IERC20Confidential is IFHERC20 {
      * @dev Claims a pending unshield request by verifying the decryption proof and transferring
      * the corresponding public tokens.
      */
-    function claimUnshielded(bytes32 ctHash, uint64 decryptedAmount, bytes calldata decryptionProof) external;
+    function claimUnshielded(bytes32 claimId, uint64 decryptedAmount, bytes calldata decryptionProof) external;
 }

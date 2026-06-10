@@ -13,8 +13,10 @@ import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
  * the underlying tokens.
  */
 interface IFHERC20ERC20Wrapper {
-    /// @dev Emitted when an unshield request is created.
-    event Unshielded(address indexed to, euint64 indexed amount);
+    /// @dev Emitted when an unshield request is created. `claimId` is the unique identifier to
+    /// pass to {claimUnshielded}; `amount` is the burned ciphertext handle (used off-chain to
+    /// obtain the decryption proof).
+    event Unshielded(address indexed to, bytes32 indexed claimId, euint64 indexed amount);
 
     /// @dev Emitted when an unshield request is claimed (underlying tokens transferred).
     event ClaimedUnshielded(

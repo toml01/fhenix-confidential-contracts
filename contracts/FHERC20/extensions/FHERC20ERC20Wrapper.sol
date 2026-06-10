@@ -107,25 +107,25 @@ abstract contract FHERC20ERC20Wrapper is FHERC20, IFHERC20ERC20Wrapper, IERC1363
      * @dev Claims a pending unshield request. Verifies the decryption proof and transfers
      * `decryptedAmount * rate()` underlying tokens to the requester.
      */
-    function claimUnshielded(bytes32 ctHash, uint64 decryptedAmount, bytes memory decryptionProof) public virtual {
-        Claim memory claim = _handleClaim(ctHash, decryptedAmount, decryptionProof);
+    function claimUnshielded(bytes32 claimId, uint64 decryptedAmount, bytes memory decryptionProof) public virtual {
+        Claim memory claim = _handleClaim(claimId, decryptedAmount, decryptionProof);
         SafeERC20.safeTransfer(IERC20(underlying()), claim.to, uint256(claim.decryptedAmount) * rate());
-        emit ClaimedUnshielded(claim.to, ctHash, FHE.wrapEuint64(ctHash), claim.decryptedAmount);
+        emit ClaimedUnshielded(claim.to, claimId, FHE.wrapEuint64(claim.ctHash), claim.decryptedAmount);
     }
 
     /**
      * @dev Claims multiple pending unshield requests in a single transaction.
      */
     function claimUnshieldedBatch(
-        bytes32[] memory ctHashes,
+        bytes32[] memory claimIds,
         uint64[] memory decryptedAmounts,
         bytes[] memory decryptionProofs
     ) public virtual {
-        Claim[] memory claims = _handleClaimBatch(ctHashes, decryptedAmounts, decryptionProofs);
+        Claim[] memory claims = _handleClaimBatch(claimIds, decryptedAmounts, decryptionProofs);
 
         for (uint256 i = 0; i < claims.length; i++) {
             SafeERC20.safeTransfer(IERC20(underlying()), claims[i].to, uint256(claims[i].decryptedAmount) * rate());
-            emit ClaimedUnshielded(claims[i].to, ctHashes[i], FHE.wrapEuint64(ctHashes[i]), claims[i].decryptedAmount);
+            emit ClaimedUnshielded(claims[i].to, claimIds[i], FHE.wrapEuint64(claims[i].ctHash), claims[i].decryptedAmount);
         }
     }
 
@@ -198,9 +198,9 @@ abstract contract FHERC20ERC20Wrapper is FHERC20, IFHERC20ERC20Wrapper, IERC1363
         euint64 unshieldAmount_ = _burn(from, amount);
         FHE.allowPublic(unshieldAmount_);
 
-        _createClaim(to, requestedAmount, unshieldAmount_);
+        bytes32 claimId = _createClaim(to, requestedAmount, unshieldAmount_);
 
-        emit Unshielded(to, unshieldAmount_);
+        emit Unshielded(to, claimId, unshieldAmount_);
         return unshieldAmount_;
     }
 

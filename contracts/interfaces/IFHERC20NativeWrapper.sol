@@ -19,8 +19,10 @@ interface IFHERC20NativeWrapper {
     /// @dev Emitted when native or wrapped-native tokens are shielded.
     event ShieldedNative(address indexed from, address indexed to, uint256 value);
 
-    /// @dev Emitted when an unshield request is created.
-    event Unshielded(address indexed to, euint64 indexed amount);
+    /// @dev Emitted when an unshield request is created. `claimId` is the unique identifier to
+    /// pass to {claimUnshielded}; `amount` is the burned ciphertext handle (used off-chain to
+    /// obtain the decryption proof).
+    event Unshielded(address indexed to, bytes32 indexed claimId, euint64 indexed amount);
 
     /// @dev Emitted when an unshield request is claimed (native tokens transferred).
     event ClaimedUnshielded(

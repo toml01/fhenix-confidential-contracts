@@ -4,16 +4,19 @@ import { FHERC20NativeWrapper_Harness, WETH_Harness } from "../typechain-types";
 import { expectFHERC20BalancesChange, prepExpectFHERC20BalancesChange } from "./utils";
 import { ZeroAddress, ContractTransactionResponse } from "ethers";
 
-async function getUnshieldRequestId(
+// Returns the unique `claimId` (passed to claimUnshielded / getClaim) and the burned ciphertext
+// `handle` (used off-chain with decryptForTx). Claims are keyed by claimId, not the raw handle
+// (audit finding H-01), so these are distinct values.
+async function getUnshieldRequest(
   tx: ContractTransactionResponse,
   contract: FHERC20NativeWrapper_Harness,
-): Promise<string> {
+): Promise<{ claimId: string; handle: string }> {
   const receipt = await tx.wait();
   for (const log of receipt!.logs) {
     try {
       const parsed = contract.interface.parseLog({ topics: log.topics as string[], data: log.data });
       if (parsed?.name === "Unshielded") {
-        return parsed.args.amount;
+        return { claimId: parsed.args.claimId, handle: parsed.args.amount };
       }
     } catch {}
   }
@@ -238,35 +241,35 @@ describe("FHERC20NativeWrapper", function () {
       await expect(tx).to.emit(eETH, "Unshielded");
       await expectFHERC20BalancesChange(eETH, bob.address, -1n * unshieldConfidentialValue);
 
-      const unshieldRequestId = await getUnshieldRequestId(tx, eETH);
+      const { claimId, handle } = await getUnshieldRequest(tx, eETH);
 
       // Verify claim was created via getClaim
-      const pendingClaim = await eETH.getClaim(unshieldRequestId);
+      const pendingClaim = await eETH.getClaim(claimId);
       expect(pendingClaim.to).to.equal(alice.address);
       expect(pendingClaim.claimed).to.equal(false);
 
       // Verify getUserClaims tracks the pending claim
       const aliceClaims = await eETH.getUserClaims(alice.address);
       expect(aliceClaims.length).to.equal(1);
-      expect(aliceClaims[0].ctHash).to.equal(unshieldRequestId);
+      expect(aliceClaims[0].ctHash).to.equal(handle);
 
       // Time travel past decryption delay
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await bobClient.decryptForTx(unshieldRequestId).withoutPermit().execute();
+      const decryption = await bobClient.decryptForTx(handle).withoutPermit().execute();
 
       const aliceBalanceBefore = await ethers.provider.getBalance(alice.address);
 
       await expect(
-        eETH.connect(bob).claimUnshielded(unshieldRequestId, decryption.decryptedValue, decryption.signature),
+        eETH.connect(bob).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature),
       ).to.emit(eETH, "ClaimedUnshielded");
 
       const aliceBalanceAfter = await ethers.provider.getBalance(alice.address);
       expect(aliceBalanceAfter - aliceBalanceBefore).to.equal(unshieldNativeValue);
 
       // Claim is marked as claimed and removed from user's pending claims
-      const claimedClaim = await eETH.getClaim(unshieldRequestId);
+      const claimedClaim = await eETH.getClaim(claimId);
       expect(claimedClaim.claimed).to.equal(true);
 
       const aliceClaimsAfter = await eETH.getUserClaims(alice.address);
@@ -289,16 +292,16 @@ describe("FHERC20NativeWrapper", function () {
       await expect(tx).to.emit(eETH, "Unshielded");
       await expectFHERC20BalancesChange(eETH, bob.address, -1n * unshieldConfidentialValue);
 
-      const unshieldRequestId = await getUnshieldRequestId(tx, eETH);
+      const { claimId, handle } = await getUnshieldRequest(tx, eETH);
 
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await aliceClient.decryptForTx(unshieldRequestId).withoutPermit().execute();
+      const decryption = await aliceClient.decryptForTx(handle).withoutPermit().execute();
 
       const aliceBalanceBefore = await ethers.provider.getBalance(alice.address);
 
-      await eETH.connect(bob).claimUnshielded(unshieldRequestId, decryption.decryptedValue, decryption.signature);
+      await eETH.connect(bob).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature);
 
       const aliceBalanceAfter = await ethers.provider.getBalance(alice.address);
       expect(aliceBalanceAfter - aliceBalanceBefore).to.equal(unshieldNativeValue);
@@ -312,11 +315,11 @@ describe("FHERC20NativeWrapper", function () {
 
       // Create first unshield
       const tx1 = await eETH.connect(bob)["unshield(address,address,uint64)"](bob.address, alice.address, unshieldAmount1);
-      const requestId1 = await getUnshieldRequestId(tx1, eETH);
+      const req1 = await getUnshieldRequest(tx1, eETH);
 
       // Create second unshield
       const tx2 = await eETH.connect(bob)["unshield(address,address,uint64)"](bob.address, alice.address, unshieldAmount2);
-      const requestId2 = await getUnshieldRequestId(tx2, eETH);
+      const req2 = await getUnshieldRequest(tx2, eETH);
 
       // Alice should have 2 pending claims
       const pendingClaims = await eETH.getUserClaims(alice.address);
@@ -325,15 +328,15 @@ describe("FHERC20NativeWrapper", function () {
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const dec1 = await bobClient.decryptForTx(requestId1).withoutPermit().execute();
-      const dec2 = await bobClient.decryptForTx(requestId2).withoutPermit().execute();
+      const dec1 = await bobClient.decryptForTx(req1.handle).withoutPermit().execute();
+      const dec2 = await bobClient.decryptForTx(req2.handle).withoutPermit().execute();
 
       const aliceBalanceBefore = await ethers.provider.getBalance(alice.address);
 
       await eETH
         .connect(bob)
         .claimUnshieldedBatch(
-          [requestId1, requestId2],
+          [req1.claimId, req2.claimId],
           [dec1.decryptedValue, dec2.decryptedValue],
           [dec1.signature, dec2.signature],
         );
@@ -368,10 +371,10 @@ describe("FHERC20NativeWrapper", function () {
       await expect(tx).to.emit(eETH, "Unshielded");
       await expectFHERC20BalancesChange(eETH, bob.address, -1n * unshieldConfidentialValue);
 
-      const unshieldRequestId = await getUnshieldRequestId(tx, eETH);
+      const { claimId, handle } = await getUnshieldRequest(tx, eETH);
 
       // Verify claim was created via getClaim
-      const pendingClaim = await eETH.getClaim(unshieldRequestId);
+      const pendingClaim = await eETH.getClaim(claimId);
       expect(pendingClaim.to).to.equal(alice.address);
       expect(pendingClaim.requestedAmount).to.equal(0n);
       expect(pendingClaim.claimed).to.equal(false);
@@ -379,25 +382,25 @@ describe("FHERC20NativeWrapper", function () {
       // Verify getUserClaims tracks the pending claim
       const aliceClaims = await eETH.getUserClaims(alice.address);
       expect(aliceClaims.length).to.equal(1);
-      expect(aliceClaims[0].ctHash).to.equal(unshieldRequestId);
+      expect(aliceClaims[0].ctHash).to.equal(handle);
 
       // Time travel past decryption delay
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await bobClient.decryptForTx(unshieldRequestId).withoutPermit().execute();
+      const decryption = await bobClient.decryptForTx(handle).withoutPermit().execute();
 
       const aliceBalanceBefore = await ethers.provider.getBalance(alice.address);
 
       await expect(
-        eETH.connect(bob).claimUnshielded(unshieldRequestId, decryption.decryptedValue, decryption.signature),
+        eETH.connect(bob).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature),
       ).to.emit(eETH, "ClaimedUnshielded");
 
       const aliceBalanceAfter = await ethers.provider.getBalance(alice.address);
       expect(aliceBalanceAfter - aliceBalanceBefore).to.equal(unshieldNativeValue);
 
       // Claim is marked as claimed and removed from user's pending claims
-      const claimedClaim = await eETH.getClaim(unshieldRequestId);
+      const claimedClaim = await eETH.getClaim(claimId);
       expect(claimedClaim.claimed).to.equal(true);
 
       const aliceClaimsAfter = await eETH.getUserClaims(alice.address);
@@ -445,19 +448,19 @@ describe("FHERC20NativeWrapper", function () {
       await eETH.connect(bob).shieldNative(bob, { value: ethers.parseEther("10") });
 
       const tx = await eETH.connect(bob)["unshield(address,address,uint64)"](bob.address, alice.address, 1_000_000n);
-      const requestId = await getUnshieldRequestId(tx, eETH);
+      const { claimId, handle } = await getUnshieldRequest(tx, eETH);
 
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await bobClient.decryptForTx(requestId).withoutPermit().execute();
+      const decryption = await bobClient.decryptForTx(handle).withoutPermit().execute();
 
       // First claim succeeds
-      await eETH.connect(bob).claimUnshielded(requestId, decryption.decryptedValue, decryption.signature);
+      await eETH.connect(bob).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature);
 
       // Second claim reverts
       await expect(
-        eETH.connect(bob).claimUnshielded(requestId, decryption.decryptedValue, decryption.signature),
+        eETH.connect(bob).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature),
       ).to.be.revertedWithCustomError(eETH, "AlreadyClaimed");
     });
   });
