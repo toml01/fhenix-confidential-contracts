@@ -25,9 +25,23 @@ abstract contract FHERC20WrapperClaimHelper {
     mapping(bytes32 ctHash => Claim) private _claims;
     mapping(address => EnumerableSet.Bytes32Set) private _userClaims;
 
+    // Monotonic per-call salt. Used to make each burned ciphertext handle unique (see H-01).
+    uint64 private _saltNonce;
+
     error ClaimNotFound();
     error AlreadyClaimed();
     error LengthMismatch();
+
+    /// @dev Salts an encrypted value so two callers performing identical operations get DISTINCT
+    /// ciphertext handles (audit finding H-01: CoFHE handles are content-addressed, so identical
+    /// computation graphs collide). The plaintext is preserved — `(x + s) - s == x (mod 2^64)` —
+    /// while `_saltNonce++` makes `FHE.asEuint64(salt)` a fresh handle each call, so the resulting
+    /// add/sub graph hashes to a unique handle. Claims can therefore stay keyed by the handle.
+    /// NOTE: relies on the coprocessor evaluating each task by handle and never folding `+s-s` away.
+    function _uniqueizeBurnedHandle(euint64 value) internal returns (euint64) {
+        euint64 s = FHE.asEuint64(_saltNonce++);
+        return FHE.sub(FHE.add(value, s), s);
+    }
 
     function _createClaim(address to, uint64 requestedAmount, euint64 claimable) internal {
         bytes32 unwrappedHash = FHE.unwrap(claimable);

@@ -22,10 +22,13 @@ abstract contract FHERC20WrapperClaimHelperUpgradeable is Initializable {
         bool claimed;
     }
 
+    // `_saltNonce` (used to make burned handles unique, see H-01) is appended to the END of the
+    // namespaced struct for upgrade safety.
     /// @custom:storage-location erc7201:fherc20.storage.FHERC20WrapperClaimHelper
     struct FHERC20WrapperClaimHelperStorage {
         mapping(bytes32 ctHash => Claim) _claims;
         mapping(address => EnumerableSet.Bytes32Set) _userClaims;
+        uint64 _saltNonce;
     }
 
     // keccak256(abi.encode(uint256(keccak256("fherc20.storage.FHERC20WrapperClaimHelper")) - 1)) & ~bytes32(uint256(0xff))
@@ -49,6 +52,14 @@ abstract contract FHERC20WrapperClaimHelperUpgradeable is Initializable {
     function __FHERC20WrapperClaimHelper_init() internal onlyInitializing {}
 
     function __FHERC20WrapperClaimHelper_init_unchained() internal onlyInitializing {}
+
+    /// @dev See {FHERC20WrapperClaimHelper-_uniqueizeBurnedHandle}. Salts a value so identical
+    /// operations across callers yield distinct handles (H-01) while preserving the plaintext.
+    function _uniqueizeBurnedHandle(euint64 value) internal returns (euint64) {
+        FHERC20WrapperClaimHelperStorage storage $ = _getFHERC20WrapperClaimHelperStorage();
+        euint64 s = FHE.asEuint64($._saltNonce++);
+        return FHE.sub(FHE.add(value, s), s);
+    }
 
     function _createClaim(address to, uint64 requestedAmount, euint64 claimable) internal {
         FHERC20WrapperClaimHelperStorage storage $ = _getFHERC20WrapperClaimHelperStorage();

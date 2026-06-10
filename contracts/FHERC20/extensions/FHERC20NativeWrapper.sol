@@ -216,6 +216,7 @@ abstract contract FHERC20NativeWrapper is FHERC20, IFHERC20NativeWrapper, FHERC2
         if (from != msg.sender && !isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
 
         euint64 unshieldAmount_ = _burn(from, amount);
+        unshieldAmount_ = _uniqueizeBurnedHandle(unshieldAmount_); // ensure a unique handle per unshield (H-01)
         FHE.allowPublic(unshieldAmount_);
 
         _createClaim(to, requestedAmount, unshieldAmount_);

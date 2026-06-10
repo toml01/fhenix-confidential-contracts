@@ -291,6 +291,7 @@ abstract contract ERC20Confidential is ERC20, ERC165, IERC20Confidential, FHERC2
 
     function _unshield(euint64 amount, uint64 requestedAmount) internal virtual returns (euint64 burned) {
         burned = _confidentialUpdate(msg.sender, address(0), amount);
+        burned = _uniqueizeBurnedHandle(burned); // ensure a unique handle per unshield (H-01)
         FHE.allowPublic(burned);
         _createClaim(msg.sender, requestedAmount, burned);
         emit TokensUnshielded(msg.sender, burned);
