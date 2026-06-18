@@ -3,14 +3,13 @@
 
 pragma solidity ^0.8.26;
 
-import { FHE, externalEuint64, euint64, ebool } from "@fhevm/solidity/lib/FHE.sol";
+import { FHE, euint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
-import { IERC7984ERC20Wrapper } from "./../interfaces/IERC7984ERC20Wrapper.sol";
+import { IERC20Confidential } from "./../interfaces/IERC20Confidential.sol";
 import { IERC7984Receiver } from "./../interfaces/IERC7984Receiver.sol";
 import { FHESafeMath } from "./../utils/FHESafeMath.sol";
 
@@ -61,8 +60,8 @@ abstract contract BatcherConfidential is ReentrancyGuardTransient, IERC7984Recei
         mapping(address => euint64) deposits;
     }
 
-    IERC7984ERC20Wrapper private immutable _fromToken;
-    IERC7984ERC20Wrapper private immutable _toToken;
+    IERC20Confidential private immutable _fromToken;
+    IERC20Confidential private immutable _toToken;
     mapping(uint256 => Batch) private _batches;
     uint256 private _currentBatchId;
 
@@ -116,23 +115,20 @@ abstract contract BatcherConfidential is ReentrancyGuardTransient, IERC7984Recei
     /// @dev Intermediate steps must not result in underlying {toToken} being transferred to or from the batcher.
     error IntermediateStepToTokenBalanceChanged(uint256 batchId);
 
-    constructor(IERC7984ERC20Wrapper fromToken_, IERC7984ERC20Wrapper toToken_) {
+    constructor(IERC20Confidential fromToken_, IERC20Confidential toToken_) {
         require(
-            ERC165Checker.supportsInterface(address(fromToken_), type(IERC7984ERC20Wrapper).interfaceId),
+            ERC165Checker.supportsInterface(address(fromToken_), type(IERC20Confidential).interfaceId),
             InvalidWrapperToken(address(fromToken_))
         );
         require(
-            ERC165Checker.supportsInterface(address(toToken_), type(IERC7984ERC20Wrapper).interfaceId),
+            ERC165Checker.supportsInterface(address(toToken_), type(IERC20Confidential).interfaceId),
             InvalidWrapperToken(address(toToken_))
         );
-        require(fromToken_.underlying() != toToken_.underlying(), DuplicateUnderlyingTokens());
+        require(address(fromToken_) != address(toToken_), DuplicateUnderlyingTokens());
 
         _fromToken = fromToken_;
         _toToken = toToken_;
         _currentBatchId = 1;
-
-        SafeERC20.forceApprove(IERC20(fromToken().underlying()), address(fromToken()), type(uint256).max);
-        SafeERC20.forceApprove(IERC20(toToken().underlying()), address(toToken()), type(uint256).max);
     }
 
     /**
@@ -190,12 +186,7 @@ abstract contract BatcherConfidential is ReentrancyGuardTransient, IERC7984Recei
 
         euint64 amountToUnwrap = totalDeposits(batchId);
         FHE.allowTransient(amountToUnwrap, address(fromToken()));
-        _batches[batchId].unwrapRequestId = fromToken().unwrap(
-            address(this),
-            address(this),
-            externalEuint64.wrap(euint64.unwrap(amountToUnwrap)),
-            ""
-        );
+        _batches[batchId].unwrapRequestId = euint64.unwrap(fromToken().unshield(amountToUnwrap));
 
         emit BatchDispatched(batchId);
     }
@@ -214,13 +205,11 @@ abstract contract BatcherConfidential is ReentrancyGuardTransient, IERC7984Recei
 
         bytes32 unwrapRequestId_ = unwrapRequestId(batchId);
         // finalize unwrap call will fail if already called by this contract or by anyone else
-        try IERC7984ERC20Wrapper(fromToken()).finalizeUnwrap(unwrapRequestId_, unwrapAmountCleartext, decryptionProof) {
-            // No need to validate input since `finalizeUnwrap` request succeeded
+        try fromToken().claimUnshielded(unwrapRequestId_, unwrapAmountCleartext, decryptionProof) {
+            // No need to validate input since `claimUnshielded` request succeeded
         } catch {
-            // Must validate input since `finalizeUnwrap` request failed
-            bytes32[] memory handles = new bytes32[](1);
-            handles[0] = euint64.unwrap(fromToken().unwrapAmount(unwrapRequestId_));
-            FHE.checkSignatures(handles, abi.encode(unwrapAmountCleartext), decryptionProof);
+            // Must validate input since `claimUnshielded` request failed
+            FHE.verifyDecryptResult(FHE.wrapEuint64(unwrapRequestId_), unwrapAmountCleartext, decryptionProof);
         }
         uint256 beforeUnderlyingToTokenBalance;
 
@@ -228,19 +217,19 @@ abstract contract BatcherConfidential is ReentrancyGuardTransient, IERC7984Recei
         if (unwrapAmountCleartext == 0) {
             outcome = ExecuteOutcome.Cancel;
         } else {
-            beforeUnderlyingToTokenBalance = IERC20(toToken().underlying()).balanceOf(address(this));
+            beforeUnderlyingToTokenBalance = IERC20(address(toToken())).balanceOf(address(this));
             outcome = _executeRoute(batchId, unwrapAmountCleartext);
         }
 
         if (outcome == ExecuteOutcome.Complete) {
-            uint256 swappedAmount = IERC20(toToken().underlying()).balanceOf(address(this));
+            uint256 swappedAmount = IERC20(address(toToken())).balanceOf(address(this));
 
             // If wrapper is full, this reverts. Will brick batcher.
             // If output is less than toToken().rate() batch can never be finalized.
             // Any dust left after (amount % toToken().rate()) goes to the next batch.
-            toToken().wrap(address(this), swappedAmount);
+            toToken().shield(swappedAmount);
 
-            uint256 wrappedAmount = swappedAmount / toToken().rate();
+            uint256 wrappedAmount = swappedAmount / _rateOf(toToken());
             uint64 exchangeRate_ = SafeCast.toUint64(
                 Math.mulDiv(wrappedAmount, uint256(10) ** exchangeRateDecimals(), unwrapAmountCleartext)
             );
@@ -256,13 +245,13 @@ abstract contract BatcherConfidential is ReentrancyGuardTransient, IERC7984Recei
         } else if (outcome == ExecuteOutcome.Cancel) {
             // rewrap tokens so that users can quit and receive their original deposit back.
             // This assumes that the unwrap was successful and that the batch has not executed any route logic.
-            fromToken().wrap(address(this), unwrapAmountCleartext * fromToken().rate());
+            fromToken().shield(IERC20(address(fromToken())).balanceOf(address(this)));
             _batches[batchId].canceled = true;
 
             emit BatchCanceled(batchId);
         } else if (outcome == ExecuteOutcome.Partial) {
             require(
-                IERC20(toToken().underlying()).balanceOf(address(this)) == beforeUnderlyingToTokenBalance,
+                IERC20(address(toToken())).balanceOf(address(this)) == beforeUnderlyingToTokenBalance,
                 IntermediateStepToTokenBalanceChanged(batchId)
             );
         }
@@ -289,12 +278,12 @@ abstract contract BatcherConfidential is ReentrancyGuardTransient, IERC7984Recei
     }
 
     /// @dev Batcher from token. Users deposit this token in exchange for {toToken}.
-    function fromToken() public view virtual returns (IERC7984ERC20Wrapper) {
+    function fromToken() public view virtual returns (IERC20Confidential) {
         return _fromToken;
     }
 
     /// @dev Batcher to token. Users receive this token in exchange for their {fromToken} deposits.
-    function toToken() public view virtual returns (IERC7984ERC20Wrapper) {
+    function toToken() public view virtual returns (IERC20Confidential) {
         return _toToken;
     }
 
@@ -362,7 +351,10 @@ abstract contract BatcherConfidential is ReentrancyGuardTransient, IERC7984Recei
         // Overflow is not possible on mul since `type(uint64).max ** 2 < type(uint128).max`.
         // Given that the output of the entire batch must fit in uint64, individual user outputs must also fit.
         euint64 amountToSend = FHE.asEuint64(
-            FHE.div(FHE.mul(FHE.asEuint128(deposit), exchangeRate(batchId)), uint128(10) ** exchangeRateDecimals())
+            FHE.div(
+                FHE.mul(FHE.asEuint128(deposit), FHE.asEuint128(uint256(exchangeRate(batchId)))),
+                FHE.asEuint128(uint256(10) ** exchangeRateDecimals())
+            )
         );
         FHE.allowTransient(amountToSend, address(toToken()));
 
@@ -447,6 +439,10 @@ abstract contract BatcherConfidential is ReentrancyGuardTransient, IERC7984Recei
     /// @dev Gets the current batch id and increments it.
     function _getAndIncreaseBatchId() internal virtual returns (uint256) {
         return _currentBatchId++;
+    }
+
+    function _rateOf(IERC20Confidential token) private view returns (uint256) {
+        return 10 ** (uint256(token.decimals()) - uint256(token.confidentialDecimals()));
     }
 
     /**
