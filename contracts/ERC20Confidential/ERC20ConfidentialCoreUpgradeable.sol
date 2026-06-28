@@ -52,6 +52,7 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore {
     error AmountTooSmallForConfidentialPrecision();
     error ConfidentialInvalidSender(address sender);
     error ConfidentialInvalidReceiver(address receiver);
+    error NotSelf();
 
     // =========================================================================
     //  Ledger hooks — implemented by the host (its public ERC-20 ledger)
@@ -100,6 +101,19 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore {
         return _getERC20ConfidentialStorage()._indicatorToken;
     }
 
+    /// @notice The compliance observer that gains FHE access to confidential values
+    ///         (address(0) = none). Set via a host's role-gated entry point.
+    function observer() public view virtual returns (address) {
+        return _getERC20ConfidentialStorage()._observer;
+    }
+
+    /// @dev Set the compliance observer. Forward access is granted in `update()`;
+    /// past handles are topped up via `ERC20ConfidentialLib.grantPast`. Hosts wrap
+    /// this behind access control.
+    function _setObserver(address observer_) internal {
+        _getERC20ConfidentialStorage()._observer = observer_;
+    }
+
     /// @dev `false` because {balanceOf} returns the real public ERC-20 balance, not an indicator.
     function balanceOfIsIndicator() public pure virtual returns (bool) {
         return false;
@@ -133,43 +147,34 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore {
     //  Shield / Unshield
     // =========================================================================
 
+    // Thin wrappers — orchestration relocated to ERC20ConfidentialLib (EIP-170).
+    // Ledger ops reach back through the self-only `__ledger` bridge below. The guard
+    // hook stays here so the host's override is invoked.
+
     function shield(uint256 amount) public virtual {
-        uint256 rate = _rate();
-        uint256 amountToShield = amount - (amount % rate);
-        if (amountToShield == 0) {
-            revert AmountTooSmallForConfidentialPrecision();
-        }
-
-        uint64 amountConfidential = SafeCast.toUint64(amountToShield / rate);
-
-        _ledgerTransfer(msg.sender, CONFIDENTIAL_POOL, amountToShield);
-        _confidentialUpdate(address(0), msg.sender, FHE.asEuint64(amountConfidential));
-
-        emit TokensShielded(msg.sender, amountToShield);
+        ERC20ConfidentialLib.shield(_getERC20ConfidentialStorage(), amount);
     }
 
     function unshield(uint64 amount) public virtual returns (euint64) {
-        return _unshield(FHE.asEuint64(amount), amount);
+        _beforeConfidentialMove(msg.sender, address(0));
+        return ERC20ConfidentialLib.unshield(_getERC20ConfidentialStorage(), FHE.asEuint64(amount), amount);
     }
 
     function unshield(euint64 amount) public virtual returns (euint64) {
-        if (!FHE.isAllowed(amount, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(amount, msg.sender);
-        }
-        return _unshield(amount, 0);
+        _beforeConfidentialMove(msg.sender, address(0));
+        return ERC20ConfidentialLib.unshieldChecked(_getERC20ConfidentialStorage(), amount);
     }
 
     function claimUnshielded(bytes32 ctHash, uint64 decryptedAmount, bytes calldata decryptionProof) public virtual {
-        ERC20ConfidentialLib.Claim memory claim = ERC20ConfidentialLib.handleClaim(
-            ctHash,
-            decryptedAmount,
-            decryptionProof
-        );
+        ERC20ConfidentialLib.claimUnshielded(_getERC20ConfidentialStorage(), ctHash, decryptedAmount, decryptionProof);
+    }
 
-        uint256 amountPublic = uint256(claim.decryptedAmount) * _rate();
-        _ledgerTransfer(CONFIDENTIAL_POOL, claim.to, amountPublic);
-
-        emit UnshieldedTokensClaimed(claim.to, ctHash, FHE.wrapEuint64(ctHash), claim.decryptedAmount);
+    /// @dev Self-only ledger bridges: the delegatecall'd library calls these on the
+    /// host (an external self-call), which forwards to the host's ledger hooks.
+    function __ledger(address from, address to, uint256 amount) external {
+        if (msg.sender != address(this)) revert NotSelf();
+        if (from == address(0)) _ledgerMint(to, amount);
+        else _ledgerTransfer(from, to, amount);
     }
 
     /// @notice Pending-claim views (delegated to the library, which owns the claim storage).
@@ -188,15 +193,23 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore {
     // Thin wrappers — the full orchestration lives in ERC20ConfidentialLib (delegatecall'd) so its
     // code isn't embedded in the host token. msg.sender/this are preserved under delegatecall.
 
+    /// @dev Hook invoked before every account-initiated confidential balance move
+    /// (transfers + unshield). Default no-op; hosts override to enforce policy
+    /// (e.g. freeze/pause). Issuer mint/burn deliberately do NOT call this.
+    function _beforeConfidentialMove(address from, address to) internal virtual {}
+
     function confidentialTransfer(address to, euint64 value) public virtual returns (euint64) {
+        _beforeConfidentialMove(msg.sender, to);
         return ERC20ConfidentialLib.confTransfer(_getERC20ConfidentialStorage(), to, value);
     }
 
     function confidentialTransfer(address to, InEuint64 memory inValue) public virtual returns (euint64) {
+        _beforeConfidentialMove(msg.sender, to);
         return ERC20ConfidentialLib.confTransferIn(_getERC20ConfidentialStorage(), to, inValue);
     }
 
     function confidentialTransferFrom(address from, address to, euint64 value) public virtual returns (euint64) {
+        _beforeConfidentialMove(from, to);
         return ERC20ConfidentialLib.confTransferFrom(_getERC20ConfidentialStorage(), from, to, value);
     }
 
@@ -205,6 +218,7 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore {
         address to,
         InEuint64 memory inValue
     ) public virtual returns (euint64) {
+        _beforeConfidentialMove(from, to);
         return ERC20ConfidentialLib.confTransferFromIn(_getERC20ConfidentialStorage(), from, to, inValue);
     }
 
@@ -213,6 +227,7 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore {
         euint64 amount,
         bytes calldata data
     ) public virtual returns (euint64) {
+        _beforeConfidentialMove(msg.sender, to);
         return ERC20ConfidentialLib.confTransferAndCall(_getERC20ConfidentialStorage(), to, amount, data);
     }
 
@@ -221,6 +236,7 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore {
         InEuint64 memory encryptedAmount,
         bytes calldata data
     ) public virtual returns (euint64) {
+        _beforeConfidentialMove(msg.sender, to);
         return ERC20ConfidentialLib.confTransferAndCallIn(_getERC20ConfidentialStorage(), to, encryptedAmount, data);
     }
 
@@ -230,6 +246,7 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore {
         euint64 amount,
         bytes calldata data
     ) public virtual returns (euint64) {
+        _beforeConfidentialMove(from, to);
         return ERC20ConfidentialLib.confTransferFromAndCall(_getERC20ConfidentialStorage(), from, to, amount, data);
     }
 
@@ -239,6 +256,7 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore {
         InEuint64 memory encryptedAmount,
         bytes calldata data
     ) public virtual returns (euint64) {
+        _beforeConfidentialMove(from, to);
         return
             ERC20ConfidentialLib.confTransferFromAndCallIn(
                 _getERC20ConfidentialStorage(),
@@ -262,20 +280,12 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore {
     // =========================================================================
 
     function _confidentialMint(address to, uint64 amount) internal virtual {
-        _ledgerMint(CONFIDENTIAL_POOL, uint256(amount) * _rate());
-        _confidentialUpdate(address(0), to, FHE.asEuint64(amount));
+        ERC20ConfidentialLib.confidentialMint(_getERC20ConfidentialStorage(), to, amount);
     }
 
     // =========================================================================
     //  Internal helpers
     // =========================================================================
-
-    function _unshield(euint64 amount, uint64 requestedAmount) internal virtual returns (euint64 burned) {
-        burned = _confidentialUpdate(msg.sender, address(0), amount);
-        FHE.allowPublic(burned);
-        ERC20ConfidentialLib.createClaim(msg.sender, requestedAmount, burned);
-        emit TokensUnshielded(msg.sender, burned);
-    }
 
     /// @dev Thin wrapper: the heavy encrypted-balance logic lives in {ERC20ConfidentialLib.update}
     /// (a linked library, delegatecall'd) so it isn't embedded in the host token's bytecode.

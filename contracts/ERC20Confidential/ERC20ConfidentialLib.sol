@@ -3,9 +3,18 @@ pragma solidity ^0.8.25;
 
 import { FHE, euint64, InEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { FHESafeMath } from "../utils/FHESafeMath.sol";
 import { FHERC20Utils } from "../FHERC20/utils/FHERC20Utils.sol";
 import { ERC20ConfidentialIndicator } from "./ERC20ConfidentialIndicator.sol";
+
+/// @dev Self-only bridge the host token exposes so this delegatecall'd library can
+/// reach the host's ledger hooks (`_ledgerTransfer` / `_ledgerMint`) for the
+/// shield / unshield-claim / mint orchestration relocated here.
+interface IConfidentialLedger {
+    /// @dev `from == address(0)` ⇒ ledger mint; otherwise ledger transfer.
+    function __ledger(address from, address to, uint256 amount) external;
+}
 
 /**
  * @title  ERC20ConfidentialLib
@@ -32,14 +41,34 @@ library ERC20ConfidentialLib {
         uint8 _decimals;
         uint8 _confidentialDecimals;
         uint256 _conversionRate;
+        // Compliance observer (ERC-7984-style). When set, every confidential
+        // balance handle produced by `update()` is also FHE.allow'd to it, so the
+        // observer can decrypt going forward. Past handles are topped up via
+        // `grantPast`. Append-only field — keep last for storage-layout safety.
+        address _observer;
     }
 
+    // Pool that custodies the public ledger tokens backing confidential balances.
+    // Mirrors the constant in ERC20ConfidentialCoreUpgradeable.
+    address constant CONFIDENTIAL_POOL = address(0x1011000000000000000000000000000000000000);
+
     event ConfidentialTransfer(address indexed from, address indexed to, euint64 indexed amount);
+    // Signatures (and indexed-ness) must match IERC20ConfidentialCore so the
+    // host token's ABI/topics are unchanged when these are emitted via delegatecall.
+    event TokensShielded(address indexed account, uint256 amount);
+    event TokensUnshielded(address indexed account, euint64 indexed amount);
+    event UnshieldedTokensClaimed(
+        address indexed account,
+        bytes32 indexed unshieldRequestId,
+        euint64 indexed unshieldAmount,
+        uint64 unshieldAmountCleartext
+    );
 
     error ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(euint64 value, address user);
     error ERC20ConfidentialUnauthorizedSpender(address holder, address spender);
     error ConfidentialInvalidSender(address sender);
     error ConfidentialInvalidReceiver(address receiver);
+    error AmountTooSmallForConfidentialPrecision();
 
     // =========================================================================
     //  Core encrypted balance update (also used by the host for shield/mint)
@@ -55,12 +84,14 @@ library ERC20ConfidentialLib {
     ) public returns (euint64 transferred) {
         ebool success;
         euint64 ptr;
+        address obs = $._observer; // compliance observer (0 = none); forward-grant below
 
         if (from != address(0)) {
             euint64 fromBalance = $._confidentialBalances[from];
             (success, ptr) = FHESafeMath.tryDecrease(fromBalance, amount);
             FHE.allowThis(ptr);
             FHE.allow(ptr, from);
+            if (obs != address(0)) FHE.allow(ptr, obs);
             $._confidentialBalances[from] = ptr;
         }
 
@@ -70,17 +101,93 @@ library ERC20ConfidentialLib {
             ptr = FHE.add($._confidentialBalances[to], transferred);
             FHE.allowThis(ptr);
             FHE.allow(ptr, to);
+            if (obs != address(0)) FHE.allow(ptr, obs);
             $._confidentialBalances[to] = ptr;
         }
 
         if (from != address(0)) FHE.allow(transferred, from);
         if (to != address(0)) FHE.allow(transferred, to);
         FHE.allowThis(transferred);
+        if (obs != address(0)) FHE.allow(transferred, obs);
 
         ERC20ConfidentialIndicator ind = $._indicatorToken;
         if (address(ind) != address(0)) ind.emitConfidentialTransfer(from, to);
 
         emit ConfidentialTransfer(from, to, transferred);
+    }
+
+    // =========================================================================
+    //  Compliance observer — past-value top-up
+    // =========================================================================
+
+    /// @dev Grant `observer` FHE access to historical ciphertext handles the host
+    /// already owns (`allowThis`'d) — past transfer amounts (from {ConfidentialTransfer}
+    /// events) and/or current balance handles (from `confidentialBalanceOf`). Closes
+    /// the forward-only gap of the observer hook in `update()`.
+    ///
+    /// Runs under delegatecall, so `FHE.allow` executes as the host token, which holds
+    /// permanent ACL on every handle it created. NOTE: on real CoFHE, a ctHash the host
+    /// never owned reverts the whole call — the off-chain indexer must supply only this
+    /// token's handles.
+    function grantPast(address observer, uint256[] calldata ctHashes) public {
+        for (uint256 i = 0; i < ctHashes.length; i++) {
+            FHE.allow(euint64.wrap(bytes32(ctHashes[i])), observer);
+        }
+    }
+
+    // =========================================================================
+    //  Shield / unshield / mint orchestration (relocated from the host token to
+    //  fit under EIP-170; ledger ops reach the host via the self-only bridge).
+    // =========================================================================
+
+    function shield(ERC20ConfidentialStorage storage $, uint256 amount) public {
+        uint256 rate = $._conversionRate;
+        uint256 amountToShield = amount - (amount % rate);
+        if (amountToShield == 0) revert AmountTooSmallForConfidentialPrecision();
+
+        uint64 amountConfidential = SafeCast.toUint64(amountToShield / rate);
+
+        IConfidentialLedger(address(this)).__ledger(msg.sender, CONFIDENTIAL_POOL, amountToShield);
+        update($, address(0), msg.sender, FHE.asEuint64(amountConfidential));
+
+        emit TokensShielded(msg.sender, amountToShield);
+    }
+
+    function unshield(
+        ERC20ConfidentialStorage storage $,
+        euint64 amount,
+        uint64 requestedAmount
+    ) public returns (euint64 burned) {
+        burned = update($, msg.sender, address(0), amount);
+        FHE.allowPublic(burned);
+        createClaim(msg.sender, requestedAmount, burned);
+        emit TokensUnshielded(msg.sender, burned);
+    }
+
+    function unshieldChecked(ERC20ConfidentialStorage storage $, euint64 amount) public returns (euint64) {
+        if (!FHE.isAllowed(amount, msg.sender)) {
+            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(amount, msg.sender);
+        }
+        return unshield($, amount, 0);
+    }
+
+    function claimUnshielded(
+        ERC20ConfidentialStorage storage $,
+        bytes32 ctHash,
+        uint64 decryptedAmount,
+        bytes calldata decryptionProof
+    ) public {
+        Claim memory claim = handleClaim(ctHash, decryptedAmount, decryptionProof);
+
+        uint256 amountPublic = uint256(claim.decryptedAmount) * $._conversionRate;
+        IConfidentialLedger(address(this)).__ledger(CONFIDENTIAL_POOL, claim.to, amountPublic);
+
+        emit UnshieldedTokensClaimed(claim.to, ctHash, FHE.wrapEuint64(ctHash), claim.decryptedAmount);
+    }
+
+    function confidentialMint(ERC20ConfidentialStorage storage $, address to, uint64 amount) public {
+        IConfidentialLedger(address(this)).__ledger(address(0), CONFIDENTIAL_POOL, uint256(amount) * $._conversionRate);
+        update($, address(0), to, FHE.asEuint64(amount));
     }
 
     // =========================================================================
