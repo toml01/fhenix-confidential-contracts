@@ -196,6 +196,30 @@ abstract contract ERC20ConfidentialUpgradeable is
         emit UnshieldedTokensClaimed(claim.to, ctHash, FHE.wrapEuint64(ctHash), claim.decryptedAmount);
     }
 
+    /**
+     * @dev Claims multiple pending unshield requests in a single transaction.
+     */
+    function claimUnshieldedBatch(
+        bytes32[] calldata ctHashes,
+        uint64[] calldata decryptedAmounts,
+        bytes[] calldata decryptionProofs
+    ) public virtual {
+        Claim[] memory claims = _handleClaimBatch(ctHashes, decryptedAmounts, decryptionProofs);
+
+        uint256 rate = _rate();
+        for (uint256 i = 0; i < claims.length; i++) {
+            uint256 amountPublic = uint256(claims[i].decryptedAmount) * rate;
+            _transfer(CONFIDENTIAL_POOL, claims[i].to, amountPublic);
+
+            emit UnshieldedTokensClaimed(
+                claims[i].to,
+                claims[i].ctHash,
+                FHE.wrapEuint64(claims[i].ctHash),
+                claims[i].decryptedAmount
+            );
+        }
+    }
+
     // =========================================================================
     //  Confidential Transfers
     // =========================================================================
