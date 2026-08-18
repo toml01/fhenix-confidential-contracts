@@ -3,13 +3,25 @@ import hre, { ethers } from "hardhat";
 import { ERC20ConfidentialUpgradeable_Harness, ERC20ConfidentialIndicator } from "../typechain-types";
 import { shouldBehaveLikeERC20Confidential } from "./ERC20Confidential.behavior";
 
+// The thin-host ERC20ConfidentialUpgradeable delegates its FHE logic to the external
+// ERC20ConfidentialLib — deploy it once and link it into the implementation factory.
+const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
+
 describe("ERC20ConfidentialUpgradeable", function () {
+  async function getImplFactory() {
+    const lib = await ethers.deployContract(LIB_FQN);
+    await lib.waitForDeployment();
+    return ethers.getContractFactory("ERC20ConfidentialUpgradeable_Harness", {
+      libraries: { [LIB_FQN]: await lib.getAddress() },
+    });
+  }
+
   async function deployProxy(
     name: string,
     symbol: string,
     decimals: number,
   ): Promise<ERC20ConfidentialUpgradeable_Harness> {
-    const implFactory = await ethers.getContractFactory("ERC20ConfidentialUpgradeable_Harness");
+    const implFactory = await getImplFactory();
     const impl = await implFactory.deploy();
     await impl.waitForDeployment();
 
@@ -61,7 +73,7 @@ describe("ERC20ConfidentialUpgradeable", function () {
     });
 
     it("should not allow calling initialize on the implementation directly", async function () {
-      const implFactory = await ethers.getContractFactory("ERC20ConfidentialUpgradeable_Harness");
+      const implFactory = await getImplFactory();
       const impl = await implFactory.deploy();
       await impl.waitForDeployment();
 
@@ -84,8 +96,8 @@ describe("ERC20ConfidentialUpgradeable", function () {
       await token.mint(bob.address, 1_000_000n);
       await token.connect(bob).shield(1_000_000n);
 
-      // confidentialTotalSupply() is a derived placeholder — assert on the pool's public balance instead.
       expect(await token.balanceOf(await token.CONFIDENTIAL_POOL())).to.equal(1_000_000n);
+      await hre.cofhe.mocks.expectPlaintext(await token.confidentialTotalSupply(), 1_000_000n);
       await hre.cofhe.mocks.expectPlaintext(await token.confidentialBalanceOf(bob.address), 1_000_000n);
     });
 
@@ -116,7 +128,7 @@ describe("ERC20ConfidentialUpgradeable", function () {
     it("should keep storage isolated between two proxies sharing one implementation", async function () {
       const [, bob] = await ethers.getSigners();
 
-      const implFactory = await ethers.getContractFactory("ERC20ConfidentialUpgradeable_Harness");
+      const implFactory = await getImplFactory();
       const impl = await implFactory.deploy();
       await impl.waitForDeployment();
       const implAddress = await impl.getAddress();

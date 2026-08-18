@@ -37,6 +37,35 @@ pnpm add fhenix-confidential-contracts
 forge install FhenixProtocol/fhenix-confidential-contracts
 ```
 
+### Linking `ERC20ConfidentialLib` (required)
+
+The confidential FHE orchestration lives in `ERC20ConfidentialLib`, an **external library** that is
+`delegatecall`ed by the token. This is what keeps confidential tokens under the EIP-170 24KB
+bytecode limit: the heavy logic is deployed once per chain instead of being embedded in every token.
+
+Every contract that inherits `ERC20Confidential`, `ERC20ConfidentialUpgradeable`,
+`ERC20ConfidentialCoreUpgradeable`, or either wrapper must be linked against it at deploy time. The
+address is baked into the token's bytecode and **cannot be changed afterwards**.
+
+```ts
+const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
+
+// 1. Deploy the library once per chain (see deploy/00_deploy_confidential_lib.ts, which also
+//    forces explorer verification and records the address under deployments/<network>/).
+const lib = await ethers.deployContract(LIB_FQN);
+await lib.waitForDeployment();
+
+// 2. Link it into every token factory.
+const factory = await ethers.getContractFactory("MyConfidentialToken", {
+  libraries: { [LIB_FQN]: await lib.getAddress() },
+});
+
+// 3. Upgradeable tokens additionally need the OZ upgrades plugin to allow linked libraries.
+await upgrades.deployProxy(factory, [...args], { unsafeAllowLinkedLibraries: true });
+```
+
+Forgetting step 2 fails at deploy time with an unresolved-link error, not silently.
+
 ## Usage
 
 ### Basic FHERC20 Token
@@ -99,23 +128,51 @@ contract MyWrappedToken is FHERC20Wrapper {
 
 ## Contract Architecture
 
+Behavior lives in shared `*Core` mixins; the concrete contracts are thin hosts that only supply
+setup (constructor vs. initializer) and ERC-165 answers. The FHE orchestration sits one level
+deeper still, in the external linked `ERC20ConfidentialLib`.
+
 ```
-FHERC20 (base)
-├── FHERC20Permit (EIP-712 signatures)
-└── FHERC20Wrapper (ERC-20 wrapping)
-    └── FHERC20UnwrapClaim (claim management)
+ERC20ConfidentialLib (external, linked, delegatecall'd - deploy once per chain)
+  ▲ used by every core below
+
+FHERC20Core (encrypted balances, operators, indicator layer, disclosure)
+├── FHERC20                                  (constructor host)
+├── FHERC20Upgradeable                        (proxy host)
+├── FHERC20ERC20WrapperCore                   (wrap/shield/unshield/claim)
+│   ├── FHERC20ERC20Wrapper
+│   └── FHERC20ERC20WrapperUpgradeable
+└── FHERC20NativeWrapperCore                  (native/WETH shield/unshield/claim)
+    ├── FHERC20NativeWrapper
+    └── FHERC20NativeWrapperUpgradeable
+
+ERC20ConfidentialCoreUpgradeable (dual-ledger confidential layer over a host's public ERC-20;
+│   reaches the ledger through _ledgerMint / _ledgerTransfer / _ledgerBalanceOf, and gates
+│   account-initiated moves through _beforeConfidentialMove)
+├── ERC20Confidential                         (constructor host, OZ ERC20 ledger)
+└── ERC20ConfidentialUpgradeable              (proxy host, OZ ERC20Upgradeable ledger)
 
 Interfaces:
-├── IFHERC20
-├── IFHERC20Permit
-├── IFHERC20Errors
-├── IFHERC20Receiver
+├── IFHERC20 / IERC7984 / IERC7984Receiver
+├── IERC20Confidential
+├── IERC20ConfidentialCore    (confidential-only; no OZ IERC20/IERC165, so it composes
+│                              with hosts that bring their own stack)
+├── IFHERC20ERC20Wrapper / IFHERC20NativeWrapper
 └── IWETH
 
 Utilities:
 ├── FHERC20Utils
+├── FHERC20Errors
+├── FHERC20WrapperClaims      (claim bookkeeping over the library's claim store)
+├── ERC20ConfidentialIndicator
 └── FHESafeMath
 ```
+
+Unshield claims are keyed by a unique per-claimant id (`keccak256(to, nonce++, handle)`), not by
+the ciphertext handle: CoFHE handles are content-addressed, so two unshields with an identical
+burned-amount lineage produce the same handle, and handle-keyed claims could overwrite each other.
+Read claim ids from `getClaim` / `getUserClaims`; the handle is retained as `Claim.ctHash` to bind
+the decryption proof.
 
 ## Key Concepts
 
