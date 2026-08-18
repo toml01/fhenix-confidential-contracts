@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import { IERC7984Receiver } from "../interfaces/IERC7984Receiver.sol";
-import { ebool, euint64, FHE } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { ebool, euint64, sharedEbool, sharedEuint64, FHE } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 /// @dev The wrapper's `unshield` overload this attacker re-enters.
 interface IReentrantUnshield {
@@ -32,9 +32,12 @@ contract MaliciousUnshieldReceiver is IERC7984Receiver {
     function onConfidentialTransferReceived(
         address /* operator */,
         address /* from */,
-        euint64 amount,
+        sharedEuint64 sharedAmount,
         bytes calldata /* data */
-    ) external returns (ebool) {
+    ) external returns (sharedEbool) {
+        // Unwrap the directed share. Requires the sharer to be `msg.sender` (the token), so an
+        // arbitrary caller cannot reach this callback with a handle nobody shared.
+        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
         // The forward leg already credited us `amount` and granted us ACL on the
         // handle, so we can unshield it right now — before the refund leg runs.
         if (!reentered) {
@@ -43,7 +46,6 @@ contract MaliciousUnshieldReceiver is IERC7984Receiver {
         }
 
         ebool rejected = FHE.asEbool(false);
-        FHE.allowTransient(rejected, msg.sender);
-        return rejected;
+        return FHE.shareEbool(rejected, msg.sender);
     }
 }

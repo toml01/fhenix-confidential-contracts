@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import { IERC7984Receiver } from "../interfaces/IERC7984Receiver.sol";
 import { IERC20ConfidentialCore } from "../interfaces/IERC20ConfidentialCore.sol";
-import { ebool, euint64, FHE } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { ebool, euint64, sharedEbool, sharedEuint64, FHE } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 /**
  * @dev Test-only attacker that triggers a cross-function reentrancy in
@@ -31,9 +31,12 @@ contract MaliciousReentrantReceiver is IERC7984Receiver {
     function onConfidentialTransferReceived(
         address /* operator */,
         address /* from */,
-        euint64 amount,
+        sharedEuint64 sharedAmount,
         bytes calldata /* data */
-    ) external returns (ebool) {
+    ) external returns (sharedEbool) {
+        // Unwrap the directed share. Requires the sharer to be `msg.sender` (the token), so an
+        // arbitrary caller cannot reach this callback with a handle nobody shared.
+        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
         // `msg.sender` is the token. The forward leg of `_moveAndCall` already
         // credited us `amount` and granted us ACL on this handle (update() line
         // 109), so we can spend it right now — before the refund leg runs.
@@ -48,7 +51,6 @@ contract MaliciousReentrantReceiver is IERC7984Receiver {
         // debit us `amount`, but our balance is now 0, so tryDecrease saturates to
         // a no-op and the sender is never made whole.
         ebool rejected = FHE.asEbool(false);
-        FHE.allowTransient(rejected, msg.sender);
-        return rejected;
+        return FHE.shareEbool(rejected, msg.sender);
     }
 }
