@@ -225,7 +225,7 @@ describe("FHERC20ERC20Wrapper", function () {
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await bobClient.decryptForTx(ctHash).withoutPermit().execute();
+      const decryption = await bobClient.decryptForTx(ctHash).withoutACP().execute();
 
       await prepExpectERC20BalancesChange(wBTC, alice.address);
 
@@ -267,7 +267,7 @@ describe("FHERC20ERC20Wrapper", function () {
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await aliceClient.decryptForTx(ctHash).withoutPermit().execute();
+      const decryption = await aliceClient.decryptForTx(ctHash).withoutACP().execute();
 
       await prepExpectERC20BalancesChange(wBTC, alice.address);
 
@@ -301,8 +301,8 @@ describe("FHERC20ERC20Wrapper", function () {
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const dec1 = await bobClient.decryptForTx(request1.ctHash).withoutPermit().execute();
-      const dec2 = await bobClient.decryptForTx(request2.ctHash).withoutPermit().execute();
+      const dec1 = await bobClient.decryptForTx(request1.ctHash).withoutACP().execute();
+      const dec2 = await bobClient.decryptForTx(request2.ctHash).withoutACP().execute();
 
       await prepExpectERC20BalancesChange(wBTC, alice.address);
 
@@ -362,7 +362,7 @@ describe("FHERC20ERC20Wrapper", function () {
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await bobClient.decryptForTx(ctHash).withoutPermit().execute();
+      const decryption = await bobClient.decryptForTx(ctHash).withoutACP().execute();
 
       await prepExpectERC20BalancesChange(wBTC, alice.address);
 
@@ -434,7 +434,7 @@ describe("FHERC20ERC20Wrapper", function () {
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
-      const decryption = await bobClient.decryptForTx(ctHash).withoutPermit().execute();
+      const decryption = await bobClient.decryptForTx(ctHash).withoutACP().execute();
 
       // First claim succeeds
       await eBTC.connect(bob).claimUnshielded(claimId, decryption.decryptedValue, decryption.signature);

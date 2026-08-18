@@ -57,7 +57,7 @@ describe("unshield claim-key collision", function () {
 
     await hre.network.provider.send("evm_increaseTime", [11]);
     await hre.network.provider.send("evm_mine");
-    const dec = await aliceClient.decryptForTx(claim.ctHash).withoutPermit().execute();
+    const dec = await aliceClient.decryptForTx(claim.ctHash).withoutACP().execute();
     await (await h.connect(alice).claimUnshielded(claim.id, dec.decryptedValue, dec.signature)).wait();
 
     expect(await h.ledger(alice.address)).to.equal(A); // rate 1 → A public paid to alice
@@ -119,10 +119,10 @@ describe("unshield claim-key collision", function () {
     await hre.network.provider.send("evm_mine");
 
     // Each claims their OWN id and is paid their OWN funds — no cross-theft, no stranding.
-    const decA = await aliceClient.decryptForTx(aliceClaim.ctHash).withoutPermit().execute();
+    const decA = await aliceClient.decryptForTx(aliceClaim.ctHash).withoutACP().execute();
     await (await h.connect(alice).claimUnshielded(aliceClaim.id, decA.decryptedValue, decA.signature)).wait();
 
-    const decB = await bobClient.decryptForTx(bobClaim.ctHash).withoutPermit().execute();
+    const decB = await bobClient.decryptForTx(bobClaim.ctHash).withoutACP().execute();
     await (await h.connect(bob).claimUnshielded(bobClaim.id, decB.decryptedValue, decB.signature)).wait();
 
     expect(await h.ledger(alice.address)).to.equal(A);

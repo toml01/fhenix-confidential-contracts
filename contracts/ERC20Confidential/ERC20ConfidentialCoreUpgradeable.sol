@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { FHE, euint64, InEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { FHE, euint64, externalEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IERC20ConfidentialCore } from "../interfaces/IERC20ConfidentialCore.sol";
 import { ERC20ConfidentialIndicator } from "./ERC20ConfidentialIndicator.sol";
 import { ERC20ConfidentialLib } from "./ERC20ConfidentialLib.sol";
@@ -264,9 +264,13 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
         return ERC20ConfidentialLib.confTransfer(to, value);
     }
 
-    function confidentialTransfer(address to, InEuint64 memory inValue) public virtual nonReentrant returns (euint64) {
+    function confidentialTransfer(
+        address to,
+        externalEuint64 inValue,
+        bytes calldata inputProof
+    ) public virtual nonReentrant returns (euint64) {
         _beforeConfidentialMove(msg.sender, to);
-        return ERC20ConfidentialLib.confTransferIn(to, inValue);
+        return ERC20ConfidentialLib.confTransferIn(to, inValue, inputProof);
     }
 
     function confidentialTransferFrom(
@@ -281,10 +285,11 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
     function confidentialTransferFrom(
         address from,
         address to,
-        InEuint64 memory inValue
+        externalEuint64 inValue,
+        bytes calldata inputProof
     ) public virtual nonReentrant returns (euint64) {
         _beforeConfidentialMove(from, to);
-        return ERC20ConfidentialLib.confTransferFromIn(from, to, inValue);
+        return ERC20ConfidentialLib.confTransferFromIn(from, to, inValue, inputProof);
     }
 
     function confidentialTransferAndCall(
@@ -298,11 +303,12 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
 
     function confidentialTransferAndCall(
         address to,
-        InEuint64 memory encryptedAmount,
-        bytes calldata data
+        externalEuint64 encryptedAmount,
+        bytes calldata data,
+        bytes calldata inputProof
     ) public virtual nonReentrant returns (euint64) {
         _beforeConfidentialMove(msg.sender, to);
-        return ERC20ConfidentialLib.confTransferAndCallIn(to, encryptedAmount, data);
+        return ERC20ConfidentialLib.confTransferAndCallIn(to, encryptedAmount, data, inputProof);
     }
 
     function confidentialTransferFromAndCall(
@@ -318,11 +324,12 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
     function confidentialTransferFromAndCall(
         address from,
         address to,
-        InEuint64 memory encryptedAmount,
-        bytes calldata data
+        externalEuint64 encryptedAmount,
+        bytes calldata data,
+        bytes calldata inputProof
     ) public virtual nonReentrant returns (euint64) {
         _beforeConfidentialMove(from, to);
-        return ERC20ConfidentialLib.confTransferFromAndCallIn(from, to, encryptedAmount, data);
+        return ERC20ConfidentialLib.confTransferFromAndCallIn(from, to, encryptedAmount, data, inputProof);
     }
 
     // =========================================================================

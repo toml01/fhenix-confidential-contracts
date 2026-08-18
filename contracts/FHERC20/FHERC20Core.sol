@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { FHE, euint64, InEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { FHE, euint64, externalEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
 import { IFHERC20, IERC7984 } from "../interfaces/IFHERC20.sol";
@@ -193,9 +193,10 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
     /// @inheritdoc IERC7984
     function confidentialTransfer(
         address to,
-        InEuint64 memory encryptedAmount
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof
     ) public virtual nonReentrant returns (euint64) {
-        return _transfer(msg.sender, to, FHE.asEuint64(encryptedAmount));
+        return _transfer(msg.sender, to, FHE.asEuint64(encryptedAmount, inputProof));
     }
 
     /// @inheritdoc IERC7984
@@ -208,10 +209,11 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
     function confidentialTransferFrom(
         address from,
         address to,
-        InEuint64 memory encryptedAmount
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof
     ) public virtual nonReentrant returns (euint64 transferred) {
         if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
-        transferred = _transfer(from, to, FHE.asEuint64(encryptedAmount));
+        transferred = _transfer(from, to, FHE.asEuint64(encryptedAmount, inputProof));
         FHE.allowTransient(transferred, msg.sender);
     }
 
@@ -230,10 +232,11 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
     /// @inheritdoc IERC7984
     function confidentialTransferAndCall(
         address to,
-        InEuint64 memory encryptedAmount,
-        bytes calldata data
+        externalEuint64 encryptedAmount,
+        bytes calldata data,
+        bytes calldata inputProof
     ) public virtual nonReentrant returns (euint64 transferred) {
-        transferred = _transferAndCall(msg.sender, to, FHE.asEuint64(encryptedAmount), data);
+        transferred = _transferAndCall(msg.sender, to, FHE.asEuint64(encryptedAmount, inputProof), data);
         FHE.allowTransient(transferred, msg.sender);
     }
 
@@ -252,11 +255,12 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
     function confidentialTransferFromAndCall(
         address from,
         address to,
-        InEuint64 memory encryptedAmount,
-        bytes calldata data
+        externalEuint64 encryptedAmount,
+        bytes calldata data,
+        bytes calldata inputProof
     ) public virtual nonReentrant returns (euint64 transferred) {
         if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
-        transferred = _transferAndCall(from, to, FHE.asEuint64(encryptedAmount), data);
+        transferred = _transferAndCall(from, to, FHE.asEuint64(encryptedAmount, inputProof), data);
         FHE.allowTransient(transferred, msg.sender);
     }
 
