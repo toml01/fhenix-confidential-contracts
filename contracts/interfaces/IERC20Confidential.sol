@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { euint64, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IFHERC20 } from "../interfaces/IFHERC20.sol";
 
 /**
@@ -43,15 +43,15 @@ interface IERC20Confidential is IFHERC20 {
      *
      * Returns the encrypted amount that was burned.
      */
-    function unshield(uint64 amount) external returns (euint64);
+    function unshield(uint64 amount) external returns (sharedEuint64);
 
     /**
      * @dev Initiates an unshield of an encrypted `amount` of confidential tokens, creating a
-     * pending claim. The caller must have ACL access to `amount`.
+     * pending claim. The caller shares the handle with {FHE-shareEuint64} naming this token.
      *
      * Returns the encrypted amount that was burned.
      */
-    function unshield(euint64 amount) external returns (euint64);
+    function unshield(sharedEuint64 sharedAmount) external returns (sharedEuint64);
 
     /**
      * @dev Claims a pending unshield request by verifying the decryption proof and transferring

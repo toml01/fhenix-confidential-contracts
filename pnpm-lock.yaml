@@ -34,14 +34,14 @@ importers:
         specifier: ^2.30.0
         version: 2.30.0(@types/node@24.1.0)
       '@cofhe/hardhat-plugin':
-        specifier: 0.0.0-alpha-20260818094925
-        version: 0.0.0-alpha-20260818094925(@fhenixprotocol/cofhe-contracts@0.2.0-beta.3)(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(@openzeppelin/contracts@5.4.0)(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))(typescript@5.5.4)(zod@3.25.76)
+        specifier: 0.7.0
+        version: 0.7.0(@fhenixprotocol/cofhe-contracts@0.2.0-beta.3)(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(@openzeppelin/contracts@5.4.0)(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))(typescript@5.5.4)(zod@3.25.76)
       '@cofhe/mock-contracts':
-        specifier: 0.0.0-alpha-20260818094925
-        version: 0.0.0-alpha-20260818094925
+        specifier: 0.7.0
+        version: 0.7.0
       '@cofhe/sdk':
-        specifier: 0.0.0-alpha-20260818094925
-        version: 0.0.0-alpha-20260818094925(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))(viem@2.38.6(typescript@5.5.4)(zod@3.25.76))
+        specifier: 0.7.0
+        version: 0.7.0(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))(viem@2.38.6(typescript@5.5.4)(zod@3.25.76))
       '@ethersproject/abi':
         specifier: ~5.7.0
         version: 5.7.0
@@ -65,7 +65,7 @@ importers:
         version: 1.0.13(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))
       '@nomicfoundation/hardhat-toolbox':
         specifier: ^5.0.0
-        version: 5.0.0(b4woch44hqjlbzx55gd36ae5di)
+        version: 5.0.0(fa7b55a4169a86c618d14eb3c4a7dd05)
       '@nomicfoundation/hardhat-verify':
         specifier: ~2.0.10
         version: 2.0.14(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))
@@ -212,8 +212,8 @@ packages:
   '@changesets/write@0.4.0':
     resolution: {integrity: sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q==}
 
-  '@cofhe/hardhat-plugin@0.0.0-alpha-20260818094925':
-    resolution: {integrity: sha512-VRNR+17HK/yfU5nAcNW6F2tLg49oqg6YlFWbw4vV0osfEYLtLSNChVWJa9QqKvo67EldFqtUCgp1P6WLsH3fbw==}
+  '@cofhe/hardhat-plugin@0.7.0':
+    resolution: {integrity: sha512-q328WFHv/Tn4mpUFczNoBxijqZ4FGa4nyIyZJGTlHupU0CYV8uecrfZ5rpHJ2Qj3lUAhqXZNoT8STWGMgCJQVw==}
     peerDependencies:
       '@fhenixprotocol/cofhe-contracts': '>=0.2.0-beta.3'
       '@nomicfoundation/hardhat-ethers': ^3.0.0
@@ -221,11 +221,11 @@ packages:
       ethers: ^5.0.0 || ^6.0.0
       hardhat: ^2.0.0
 
-  '@cofhe/mock-contracts@0.0.0-alpha-20260818094925':
-    resolution: {integrity: sha512-/gDziyN3LNa5GOuU6P8eaa4x1HRQPgq+zBhI0TcHU1ooA92MAJxggO6yS6e/GqJ6WNo/Le8Jkki0efXmayYqWw==}
+  '@cofhe/mock-contracts@0.7.0':
+    resolution: {integrity: sha512-/XMCSnReiLVBik2EXqIekyF1MaPxp/z544CWx5bSTEnTEPlQ3mSAc4sK2nxMiHeEXOdy9D87ivzEd2tjga50zA==}
 
-  '@cofhe/sdk@0.0.0-alpha-20260818094925':
-    resolution: {integrity: sha512-lkFnOWH7ixQislffdu0b1gdh66cTbTBWTSb2i8jm1eV53pZbcVEDWK8kWBc0dv1bV8vecCQ2DtjoZ5kwoVG1sw==}
+  '@cofhe/sdk@0.7.0':
+    resolution: {integrity: sha512-Re8CHoVb4lUojhFLfmwI3keekwz6IYffXCqX4wyN2SdIqfm3uvFYeZ34RfcBPtC7uwoF5w9M4lDljHwUFmGzMA==}
     peerDependencies:
       '@nomicfoundation/hardhat-ethers': ^3.0.0
       '@wagmi/core': ^2.0.0
@@ -3176,10 +3176,10 @@ snapshots:
       human-id: 4.1.3
       prettier: 2.8.8
 
-  '@cofhe/hardhat-plugin@0.0.0-alpha-20260818094925(@fhenixprotocol/cofhe-contracts@0.2.0-beta.3)(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(@openzeppelin/contracts@5.4.0)(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))(typescript@5.5.4)(zod@3.25.76)':
+  '@cofhe/hardhat-plugin@0.7.0(@fhenixprotocol/cofhe-contracts@0.2.0-beta.3)(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(@openzeppelin/contracts@5.4.0)(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))(typescript@5.5.4)(zod@3.25.76)':
     dependencies:
-      '@cofhe/mock-contracts': 0.0.0-alpha-20260818094925
-      '@cofhe/sdk': 0.0.0-alpha-20260818094925(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))(viem@2.38.6(typescript@5.5.4)(zod@3.25.76))
+      '@cofhe/mock-contracts': 0.7.0
+      '@cofhe/sdk': 0.7.0(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))(viem@2.38.6(typescript@5.5.4)(zod@3.25.76))
       '@fhenixprotocol/cofhe-contracts': 0.2.0-beta.3
       '@nomicfoundation/hardhat-ethers': 3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))
       '@openzeppelin/contracts': 5.4.0
@@ -3199,13 +3199,13 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@cofhe/mock-contracts@0.0.0-alpha-20260818094925':
+  '@cofhe/mock-contracts@0.7.0':
     dependencies:
       '@fhenixprotocol/cofhe-contracts': 0.2.0-beta.3
       '@openzeppelin/contracts': 5.4.0
       '@openzeppelin/contracts-upgradeable': 5.4.0(@openzeppelin/contracts@5.4.0)
 
-  '@cofhe/sdk@0.0.0-alpha-20260818094925(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))(viem@2.38.6(typescript@5.5.4)(zod@3.25.76))':
+  '@cofhe/sdk@0.7.0(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))(viem@2.38.6(typescript@5.5.4)(zod@3.25.76))':
     dependencies:
       iframe-shared-storage: 1.0.34
       immer: 10.1.1
@@ -3754,7 +3754,7 @@ snapshots:
       ethereumjs-util: 7.1.5
       hardhat: 2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)
 
-  '@nomicfoundation/hardhat-toolbox@5.0.0(b4woch44hqjlbzx55gd36ae5di)':
+  '@nomicfoundation/hardhat-toolbox@5.0.0(fa7b55a4169a86c618d14eb3c4a7dd05)':
     dependencies:
       '@nomicfoundation/hardhat-chai-matchers': 2.0.9(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(chai@4.5.0)(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))
       '@nomicfoundation/hardhat-ethers': 3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))

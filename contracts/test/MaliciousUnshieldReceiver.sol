@@ -6,7 +6,7 @@ import { ebool, euint64, sharedEbool, sharedEuint64, FHE } from "@fhenixprotocol
 
 /// @dev The wrapper's `unshield` overload this attacker re-enters.
 interface IReentrantUnshield {
-    function unshield(address from, address to, euint64 amount) external returns (euint64);
+    function unshield(address from, address to, sharedEuint64 sharedAmount) external returns (sharedEuint64);
 }
 
 /**
@@ -42,7 +42,7 @@ contract MaliciousUnshieldReceiver is IERC7984Receiver {
         // handle, so we can unshield it right now — before the refund leg runs.
         if (!reentered) {
             reentered = true;
-            IReentrantUnshield(msg.sender).unshield(address(this), attacker, amount);
+            IReentrantUnshield(msg.sender).unshield(address(this), attacker, FHE.shareEuint64(amount, msg.sender));
         }
 
         ebool rejected = FHE.asEbool(false);

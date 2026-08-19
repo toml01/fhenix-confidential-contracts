@@ -35,9 +35,10 @@ describe("sharedEuint64 transfer-callback boundary", function () {
     return { bob, token, receiver, bobClient };
   }
 
-  it("round trip: the receiver really receives the transferred amount", async function () {
-    const { bob, token, receiver, bobClient } = await fixture();
-    const receiverAddr = await receiver.getAddress();
+  // Drives one real `*AndCall` transfer into the receiver. Both cases below need it: the first
+  // asserts on what arrived, the second needs the handle the receiver is left holding.
+  async function roundTrip(ctx: Awaited<ReturnType<typeof fixture>>) {
+    const { bob, token, receiver, bobClient } = ctx;
 
     const [hash, proof] = await bobClient
       .encryptInputs([Encryptable.uint64(AMOUNT)])
@@ -47,8 +48,15 @@ describe("sharedEuint64 transfer-callback boundary", function () {
     await (
       await token
         .connect(bob)
-        ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](receiverAddr, hash, "0x", proof)
+        ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](await receiver.getAddress(), hash, proof, "0x")
     ).wait();
+  }
+
+  it("round trip: the receiver really receives the transferred amount", async function () {
+    const ctx = await fixture();
+    const { receiver } = ctx;
+
+    await roundTrip(ctx);
 
     // The callback ran, unwrapped the directed share, and persisted the handle.
     expect(await receiver.callbackCount()).to.equal(1n);
@@ -57,23 +65,29 @@ describe("sharedEuint64 transfer-callback boundary", function () {
   });
 
   it("oracle path is closed: calling the callback directly with an unshared handle reverts", async function () {
-    const { bob, token, receiver } = await fixture();
+    const ctx = await fixture();
+    const { bob, receiver } = ctx;
 
-    // A handle the RECEIVER is legitimately allowed on would be the strongest input, but any
-    // handle demonstrates the check: nothing was shared with the receiver in this transaction,
-    // so `receiveEuint64Param` has no share record to consume and must refuse. Before the
-    // migration this call succeeded and performed FHE work on the attacker's chosen handle.
-    const someHandle = await token.confidentialBalanceOf(bob.address);
+    // Run a real transfer first so the receiver is left holding a handle of its own:
+    // SharedAmountReceiver calls `allowThis`/`allowPublic` on it, and `_update` already granted
+    // the receiver persistent ACL access as the transfer's `to`. That makes this the STRONGEST
+    // possible input — the receiver's own stored state, on which it has every ACL right the FHE
+    // ops would need. The only thing missing is a share record, and that alone must stop it.
+    // Before the migration this call succeeded and turned the callback into a decryption oracle.
+    await roundTrip(ctx);
+    const ownHandle = await receiver.lastAmount();
 
     // Assert the SPECIFIC refusal, not just "it reverted": NotShared is the ACL reporting that
     // no share record exists for this receiver. A generic `to.be.reverted` would also pass on an
-    // unrelated failure and would not prove the oracle path is what closed.
-    const aclAbi = await ethers.getContractAt("MockACL", ethers.ZeroAddress);
+    // unrelated failure and would not prove the oracle path is what closed. The check is
+    // share-based rather than ACL-based, which is precisely why holding ACL does not help here.
+    const acl = await hre.cofhe.mocks.getMockACL();
     await expect(
-      receiver.connect(bob).onConfidentialTransferReceived(bob.address, bob.address, someHandle, "0x"),
-    ).to.be.revertedWithCustomError(aclAbi, "NotShared");
+      receiver.connect(bob).onConfidentialTransferReceived(bob.address, bob.address, ownHandle, "0x"),
+    ).to.be.revertedWithCustomError(acl, "NotShared");
 
-    // No callback was recorded, so the receiver did no FHE work on the supplied handle.
-    expect(await receiver.callbackCount()).to.equal(0n);
+    // Still just the one legitimate callback from the round trip — the direct call did no FHE
+    // work on the supplied handle.
+    expect(await receiver.callbackCount()).to.equal(1n);
   });
 });

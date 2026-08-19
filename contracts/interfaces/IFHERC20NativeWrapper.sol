@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { euint64, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 /**
  * @dev Interface for an {FHERC20} wrapper that shields a chain's native token (e.g. ETH)
@@ -37,7 +37,7 @@ interface IFHERC20NativeWrapper {
      *
      * Returns the encrypted amount of shielded tokens sent.
      */
-    function shieldWrappedNative(address to, uint256 value) external returns (euint64);
+    function shieldWrappedNative(address to, uint256 value) external returns (sharedEuint64);
 
     /**
      * @dev Shields native tokens into confidential tokens. `msg.value` is truncated to
@@ -45,7 +45,7 @@ interface IFHERC20NativeWrapper {
      *
      * Returns the encrypted amount of shielded tokens sent.
      */
-    function shieldNative(address to) external payable returns (euint64);
+    function shieldNative(address to) external payable returns (sharedEuint64);
 
     /**
      * @dev Initiates an unshield of confidential tokens from `from` and creates a pending
@@ -53,16 +53,16 @@ interface IFHERC20NativeWrapper {
      *
      * Returns the encrypted amount that was burned.
      */
-    function unshield(address from, address to, uint64 amount) external returns (euint64);
+    function unshield(address from, address to, uint64 amount) external returns (sharedEuint64);
 
     /**
      * @dev Initiates an unshield of an encrypted `amount` from `from`, creating a pending
-     * unshield request for `to`. The caller must have ACL access to `amount` and must be
-     * `from` or an operator for `from`.
+     * unshield request for `to`. The caller shares the handle with {FHE-shareEuint64} naming this
+     * wrapper, and must be `from` or an operator for `from`.
      *
      * Returns the encrypted amount that was burned.
      */
-    function unshield(address from, address to, euint64 amount) external returns (euint64);
+    function unshield(address from, address to, sharedEuint64 sharedAmount) external returns (sharedEuint64);
 
     /**
      * @dev Claims a pending unshield request by verifying the decryption proof and transferring

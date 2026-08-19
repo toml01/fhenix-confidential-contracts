@@ -374,26 +374,27 @@ describe("FHERC20NativeWrapper", function () {
       expect(claimsAfter.length).to.equal(0);
     });
 
-    it("should complete unshield and claim flow with encrypted amount (euint64)", async function () {
+    it("should complete unshield and claim flow with encrypted amount (sharedEuint64)", async function () {
       const { eETH, bob, alice, bobClient } = await setupFixture();
+
+      // The bytes32 overload now takes a `sharedEuint64`, and only a contract can produce one:
+      // sharing goes through FHE.shareEuint64, which an EOA cannot call. A composing contract
+      // holds the confidential balance and shares it with the wrapper.
+      const caller = await (await ethers.getContractFactory("MockSharedAmountCaller")).deploy();
+      const callerAddr = await caller.getAddress();
 
       const unshieldConfidentialValue = 1_000_000n;
       const unshieldNativeValue = unshieldConfidentialValue * conversionRate; // 1e18
 
-      // Shield exactly the unshield amount so balance handle matches the desired value
-      await eETH.connect(bob).shieldNative(bob, { value: unshieldNativeValue });
+      // Shield exactly the unshield amount into the helper so its balance handle matches.
+      await eETH.connect(bob).shieldNative(callerAddr, { value: unshieldNativeValue });
 
-      // Get bob's encrypted balance handle as the euint64 input
-      const encryptedAmount = await eETH.confidentialBalanceOf(bob.address);
+      await prepExpectFHERC20BalancesChange(eETH, callerAddr);
 
-      await prepExpectFHERC20BalancesChange(eETH, bob.address);
-
-      const tx = await eETH
-        .connect(bob)
-        ["unshield(address,address,bytes32)"](bob.address, alice.address, encryptedAmount);
+      const tx = await caller.unshieldOwnBalanceOnWrapper(await eETH.getAddress(), alice.address);
 
       await expect(tx).to.emit(eETH, "Unshielded");
-      await expectFHERC20BalancesChange(eETH, bob.address, -1n * unshieldConfidentialValue);
+      await expectFHERC20BalancesChange(eETH, callerAddr, -1n * unshieldConfidentialValue);
 
       const { ctHash, claimId } = await getUnshieldRequest(tx, eETH, alice.address);
 

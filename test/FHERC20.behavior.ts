@@ -157,7 +157,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
   });
 
   describe("confidentialTransfer", function () {
-    it("should transfer from bob to alice (InEuint64)", async function () {
+    it("should transfer from bob to alice (externalEuint64)", async function () {
       const { token, bob, alice, bobClient } = await setupFixture();
 
       const mintValue = 10_000_000n;
@@ -165,7 +165,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.mint(alice.address, mintValue);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await bobClient
+      const [encTransferInput, inputProof] = await bobClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -174,9 +174,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await prepExpectFHERC20BalancesChange(token, alice.address);
 
       await expect(
-        token
-          .connect(bob)
-          ["confidentialTransfer(address,bytes32,bytes)"](alice.address, encTransferInput, encTransferInputProof),
+        token.connect(bob)["confidentialTransfer(address,bytes32,bytes)"](alice.address, encTransferInput, inputProof),
       ).to.emit(token, "ConfidentialTransfer");
 
       await expectFHERC20BalancesChange(token, bob.address, -1n * transferValue);
@@ -189,15 +187,13 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.mint(bob.address, 10_000_000n);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await bobClient
+      const [encTransferInput, inputProof] = await bobClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
 
       await expect(
-        token
-          .connect(bob)
-          ["confidentialTransfer(address,bytes32,bytes)"](ZeroAddress, encTransferInput, encTransferInputProof),
+        token.connect(bob)["confidentialTransfer(address,bytes32,bytes)"](ZeroAddress, encTransferInput, inputProof),
       ).to.be.revertedWithCustomError(token, "FHERC20InvalidReceiver");
     });
 
@@ -209,7 +205,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.mint(alice.address, mintValue);
 
       const transferValue = 10_000_000n;
-      const [encTransferInput, encTransferInputProof] = await bobClient
+      const [encTransferInput, inputProof] = await bobClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -219,7 +215,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
 
       await token
         .connect(bob)
-        ["confidentialTransfer(address,bytes32,bytes)"](alice.address, encTransferInput, encTransferInputProof);
+        ["confidentialTransfer(address,bytes32,bytes)"](alice.address, encTransferInput, inputProof);
 
       await expectFHERC20BalancesChange(token, bob.address, 0n);
       await expectFHERC20BalancesChange(token, alice.address, 0n);
@@ -294,7 +290,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.connect(bob).setOperator(alice.address, timestamp);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await aliceClient
+      const [encTransferInput, inputProof] = await aliceClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -307,7 +303,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
           .connect(alice)
           [
             "confidentialTransferFrom(address,address,bytes32,bytes)"
-          ](bob.address, alice.address, encTransferInput, encTransferInputProof),
+          ](bob.address, alice.address, encTransferInput, inputProof),
       ).to.emit(token, "ConfidentialTransfer");
 
       await expectFHERC20BalancesChange(token, bob.address, -1n * transferValue);
@@ -321,7 +317,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.connect(bob).setOperator(eve.address, timestamp);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await eveClient
+      const [encTransferInput, inputProof] = await eveClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -334,7 +330,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
           .connect(eve)
           [
             "confidentialTransferFrom(address,address,bytes32,bytes)"
-          ](bob.address, alice.address, encTransferInput, encTransferInputProof),
+          ](bob.address, alice.address, encTransferInput, inputProof),
       ).to.emit(token, "ConfidentialTransfer");
 
       await expectFHERC20BalancesChange(token, bob.address, -1n * transferValue);
@@ -355,18 +351,16 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.connect(bob).setOperator(vaultAddress, timestamp);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await bobClient
+      // The vault is what unseals the input, so the proof must be bound to it rather than the token.
+      const [encTransferInput, inputProof] = await bobClient
         .encryptInputs([Encryptable.uint64(transferValue)])
-        .setConsumingContract(await vault.getAddress())
+        .setConsumingContract(vaultAddress)
         .execute();
 
       await prepExpectFHERC20BalancesChange(token, bob.address);
       await prepExpectFHERC20BalancesChange(token, vaultAddress);
 
-      await expect(vault.connect(bob).deposit(encTransferInput, encTransferInputProof)).to.emit(
-        token,
-        "ConfidentialTransfer",
-      );
+      await expect(vault.connect(bob).deposit(encTransferInput, inputProof)).to.emit(token, "ConfidentialTransfer");
 
       await expectFHERC20BalancesChange(token, bob.address, -1n * transferValue);
       await expectFHERC20BalancesChange(token, vaultAddress, transferValue);
@@ -379,7 +373,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.connect(bob).setOperator(alice.address, timestamp);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await aliceClient
+      const [encTransferInput, inputProof] = await aliceClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -389,7 +383,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
           .connect(alice)
           [
             "confidentialTransferFrom(address,address,bytes32,bytes)"
-          ](bob.address, ZeroAddress, encTransferInput, encTransferInputProof),
+          ](bob.address, ZeroAddress, encTransferInput, inputProof),
       ).to.be.revertedWithCustomError(token, "FHERC20InvalidReceiver");
     });
 
@@ -400,7 +394,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.connect(bob).setOperator(eve.address, timestamp);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await aliceClient
+      const [encTransferInput, inputProof] = await aliceClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -410,7 +404,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
           .connect(alice)
           [
             "confidentialTransferFrom(address,address,bytes32,bytes)"
-          ](bob.address, alice.address, encTransferInput, encTransferInputProof),
+          ](bob.address, alice.address, encTransferInput, inputProof),
       ).to.be.revertedWithCustomError(token, "FHERC20UnauthorizedSpender");
     });
   });
@@ -427,17 +421,16 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await receiver.waitForDeployment();
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await bobClient
+      const [encTransferInput, inputProof] = await bobClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
 
-      return { token, bob, alice, eve, receiver, encTransferInput, encTransferInputProof, transferValue };
+      return { token, bob, alice, eve, receiver, encTransferInput, inputProof, transferValue };
     };
 
     it("should transfer with callback to receiver (success)", async function () {
-      const { token, bob, receiver, encTransferInput, encTransferInputProof, transferValue } =
-        await setupTransferAndCallFixture();
+      const { token, bob, receiver, encTransferInput, inputProof, transferValue } = await setupTransferAndCallFixture();
 
       const receiverAddress = await receiver.getAddress();
 
@@ -450,7 +443,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
         .connect(bob)
         [
           "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
-        ](receiverAddress, encTransferInput, callData, encTransferInputProof);
+        ](receiverAddress, encTransferInput, inputProof, callData);
 
       await expect(tx).to.emit(receiver, "ConfidentialTransferCallback").withArgs(true);
 
@@ -459,7 +452,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
     });
 
     it("should transfer with callback to receiver (failure - refund)", async function () {
-      const { token, bob, receiver, encTransferInput, encTransferInputProof } = await setupTransferAndCallFixture();
+      const { token, bob, receiver, encTransferInput, inputProof } = await setupTransferAndCallFixture();
 
       const receiverAddress = await receiver.getAddress();
 
@@ -473,7 +466,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
           .connect(bob)
           [
             "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
-          ](receiverAddress, encTransferInput, callData, encTransferInputProof),
+          ](receiverAddress, encTransferInput, inputProof, callData),
       ).to.emit(receiver, "ConfidentialTransferCallback");
 
       await expectFHERC20BalancesChange(token, bob.address, 0n);
@@ -481,8 +474,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
     });
 
     it("should transfer with callback to EOA (always succeeds)", async function () {
-      const { token, bob, alice, encTransferInput, encTransferInputProof, transferValue } =
-        await setupTransferAndCallFixture();
+      const { token, bob, alice, encTransferInput, inputProof, transferValue } = await setupTransferAndCallFixture();
 
       await token.mint(alice.address, 1_000_000n);
 
@@ -491,9 +483,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
 
       const tx = await token
         .connect(bob)
-        [
-          "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
-        ](alice.address, encTransferInput, "0x", encTransferInputProof);
+        ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](alice.address, encTransferInput, inputProof, "0x");
 
       await expect(tx).to.emit(token, "ConfidentialTransfer");
 
@@ -502,7 +492,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
     });
 
     it("should revert with custom error from callback", async function () {
-      const { token, bob, receiver, encTransferInput, encTransferInputProof } = await setupTransferAndCallFixture();
+      const { token, bob, receiver, encTransferInput, inputProof } = await setupTransferAndCallFixture();
 
       const callData = ethers.AbiCoder.defaultAbiCoder().encode(["uint8"], [2]);
 
@@ -511,21 +501,19 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
           .connect(bob)
           [
             "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
-          ](await receiver.getAddress(), encTransferInput, callData, encTransferInputProof),
+          ](await receiver.getAddress(), encTransferInput, inputProof, callData),
       )
         .to.be.revertedWithCustomError(receiver, "InvalidInput")
         .withArgs(2);
     });
 
     it("should revert on transfer to zero address", async function () {
-      const { token, bob, encTransferInput, encTransferInputProof } = await setupTransferAndCallFixture();
+      const { token, bob, encTransferInput, inputProof } = await setupTransferAndCallFixture();
 
       await expect(
         token
           .connect(bob)
-          [
-            "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
-          ](ZeroAddress, encTransferInput, "0x", encTransferInputProof),
+          ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](ZeroAddress, encTransferInput, inputProof, "0x"),
       ).to.be.revertedWithCustomError(token, "FHERC20InvalidReceiver");
     });
   });
@@ -554,7 +542,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.connect(bob).setOperator(alice.address, timestamp);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await aliceClient
+      const [encTransferInput, inputProof] = await aliceClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -568,7 +556,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
         .connect(alice)
         [
           "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-        ](bob.address, receiverAddress, encTransferInput, callData, encTransferInputProof);
+        ](bob.address, receiverAddress, encTransferInput, inputProof, callData);
 
       await expect(tx).to.emit(receiver, "ConfidentialTransferCallback").withArgs(true);
 
@@ -585,7 +573,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.connect(bob).setOperator(alice.address, timestamp);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await aliceClient
+      const [encTransferInput, inputProof] = await aliceClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -600,7 +588,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
           .connect(alice)
           [
             "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-          ](bob.address, receiverAddress, encTransferInput, callData, encTransferInputProof),
+          ](bob.address, receiverAddress, encTransferInput, inputProof, callData),
       ).to.emit(receiver, "ConfidentialTransferCallback");
 
       await expectFHERC20BalancesChange(token, bob.address, 0n);
@@ -614,7 +602,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.connect(bob).setOperator(eve.address, timestamp);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await eveClient
+      const [encTransferInput, inputProof] = await eveClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -626,7 +614,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
         .connect(eve)
         [
           "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-        ](bob.address, alice.address, encTransferInput, "0x", encTransferInputProof);
+        ](bob.address, alice.address, encTransferInput, inputProof, "0x");
 
       await expect(tx).to.emit(token, "ConfidentialTransfer");
 
@@ -638,7 +626,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       const { token, bob, alice, receiver, aliceClient } = await setupTransferFromAndCallFixture();
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await aliceClient
+      const [encTransferInput, inputProof] = await aliceClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -650,7 +638,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
           .connect(alice)
           [
             "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-          ](bob.address, await receiver.getAddress(), encTransferInput, callData, encTransferInputProof),
+          ](bob.address, await receiver.getAddress(), encTransferInput, inputProof, callData),
       ).to.be.revertedWithCustomError(token, "FHERC20UnauthorizedSpender");
     });
 
@@ -661,7 +649,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.connect(bob).setOperator(alice.address, timestamp);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await aliceClient
+      const [encTransferInput, inputProof] = await aliceClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -673,7 +661,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
           .connect(alice)
           [
             "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-          ](bob.address, await receiver.getAddress(), encTransferInput, callData, encTransferInputProof),
+          ](bob.address, await receiver.getAddress(), encTransferInput, inputProof, callData),
       )
         .to.be.revertedWithCustomError(receiver, "InvalidInput")
         .withArgs(2);
@@ -686,7 +674,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
       await token.connect(bob).setOperator(alice.address, timestamp);
 
       const transferValue = 1_000_000n;
-      const [encTransferInput, encTransferInputProof] = await aliceClient
+      const [encTransferInput, inputProof] = await aliceClient
         .encryptInputs([Encryptable.uint64(transferValue)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -696,7 +684,7 @@ export function shouldBehaveLikeFHERC20(setupFixture: SetupFixtureFn, deployWith
           .connect(alice)
           [
             "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-          ](bob.address, ZeroAddress, encTransferInput, "0x", encTransferInputProof),
+          ](bob.address, ZeroAddress, encTransferInput, inputProof, "0x"),
       ).to.be.revertedWithCustomError(token, "FHERC20InvalidReceiver");
     });
   });

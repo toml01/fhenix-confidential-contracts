@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { euint64, externalEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { euint64, externalEuint64, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 /**
  * @dev Confidential-only surface for {ERC20ConfidentialCoreUpgradeable}.
@@ -52,9 +52,9 @@ interface IERC20ConfidentialCore {
 
     function shield(uint256 amount) external;
 
-    function unshield(uint64 amount) external returns (euint64);
+    function unshield(uint64 amount) external returns (sharedEuint64);
 
-    function unshield(euint64 amount) external returns (euint64);
+    function unshield(sharedEuint64 sharedAmount) external returns (sharedEuint64);
 
     /// @param id The unique claim id from {getClaim}/{getUserClaims} (NOT the ciphertext handle).
     function claimUnshielded(bytes32 id, uint64 decryptedAmount, bytes calldata decryptionProof) external;
@@ -66,20 +66,24 @@ interface IERC20ConfidentialCore {
         bytes[] calldata decryptionProofs
     ) external;
 
-    function confidentialTransfer(address to, euint64 amount) external returns (euint64 transferred);
+    function confidentialTransfer(address to, sharedEuint64 sharedAmount) external returns (sharedEuint64 transferred);
 
     function confidentialTransfer(
         address to,
         externalEuint64 encryptedAmount,
         bytes calldata inputProof
-    ) external returns (euint64 transferred);
+    ) external returns (sharedEuint64 transferred);
 
-    function confidentialTransferFrom(address from, address to, euint64 amount) external returns (euint64 transferred);
+    function confidentialTransferFrom(
+        address from,
+        address to,
+        sharedEuint64 sharedAmount
+    ) external returns (sharedEuint64 transferred);
 
     function confidentialTransferFrom(
         address from,
         address to,
         externalEuint64 encryptedAmount,
         bytes calldata inputProof
-    ) external returns (euint64 transferred);
+    ) external returns (sharedEuint64 transferred);
 }

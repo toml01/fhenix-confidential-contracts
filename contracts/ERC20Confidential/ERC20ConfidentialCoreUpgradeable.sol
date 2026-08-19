@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { FHE, euint64, externalEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { FHE, euint64, externalEuint64, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IERC20ConfidentialCore } from "../interfaces/IERC20ConfidentialCore.sol";
 import { ERC20ConfidentialIndicator } from "./ERC20ConfidentialIndicator.sol";
 import { ERC20ConfidentialLib } from "./ERC20ConfidentialLib.sol";
@@ -46,7 +46,6 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
         }
     }
 
-    error ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(euint64 value, address user);
     error ERC20ConfidentialUnauthorizedSpender(address holder, address spender);
     error AmountTooSmallForConfidentialPrecision();
     error ConfidentialInvalidSender(address sender);
@@ -185,14 +184,14 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
         ERC20ConfidentialLib.shield(amount);
     }
 
-    function unshield(uint64 amount) public virtual nonReentrant returns (euint64) {
+    function unshield(uint64 amount) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(msg.sender, address(0));
-        return ERC20ConfidentialLib.unshield(FHE.asEuint64(amount));
+        return FHE.shareEuint64(ERC20ConfidentialLib.unshield(FHE.asEuint64(amount)), msg.sender);
     }
 
-    function unshield(euint64 amount) public virtual nonReentrant returns (euint64) {
+    function unshield(sharedEuint64 sharedAmount) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(msg.sender, address(0));
-        return ERC20ConfidentialLib.unshieldChecked(amount);
+        return FHE.shareEuint64(ERC20ConfidentialLib.unshieldChecked(sharedAmount), msg.sender);
     }
 
     // No reentrancy guard: the only external call is the self-call to `__ledger`
@@ -259,16 +258,19 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
     /// (e.g. freeze/pause). Issuer mint/burn deliberately do NOT call this.
     function _beforeConfidentialMove(address from, address to) internal virtual {}
 
-    function confidentialTransfer(address to, euint64 value) public virtual nonReentrant returns (euint64) {
+    function confidentialTransfer(
+        address to,
+        sharedEuint64 sharedValue
+    ) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(msg.sender, to);
-        return ERC20ConfidentialLib.confTransfer(to, value);
+        return ERC20ConfidentialLib.confTransfer(to, sharedValue);
     }
 
     function confidentialTransfer(
         address to,
         externalEuint64 inValue,
         bytes calldata inputProof
-    ) public virtual nonReentrant returns (euint64) {
+    ) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(msg.sender, to);
         return ERC20ConfidentialLib.confTransferIn(to, inValue, inputProof);
     }
@@ -276,10 +278,10 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
     function confidentialTransferFrom(
         address from,
         address to,
-        euint64 value
-    ) public virtual nonReentrant returns (euint64) {
+        sharedEuint64 sharedValue
+    ) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(from, to);
-        return ERC20ConfidentialLib.confTransferFrom(from, to, value);
+        return ERC20ConfidentialLib.confTransferFrom(from, to, sharedValue);
     }
 
     function confidentialTransferFrom(
@@ -287,49 +289,49 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
         address to,
         externalEuint64 inValue,
         bytes calldata inputProof
-    ) public virtual nonReentrant returns (euint64) {
+    ) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(from, to);
         return ERC20ConfidentialLib.confTransferFromIn(from, to, inValue, inputProof);
     }
 
     function confidentialTransferAndCall(
         address to,
-        euint64 amount,
+        sharedEuint64 sharedAmount,
         bytes calldata data
-    ) public virtual nonReentrant returns (euint64) {
+    ) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(msg.sender, to);
-        return ERC20ConfidentialLib.confTransferAndCall(to, amount, data);
+        return ERC20ConfidentialLib.confTransferAndCall(to, sharedAmount, data);
     }
 
     function confidentialTransferAndCall(
         address to,
         externalEuint64 encryptedAmount,
-        bytes calldata data,
-        bytes calldata inputProof
-    ) public virtual nonReentrant returns (euint64) {
+        bytes calldata inputProof,
+        bytes calldata data
+    ) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(msg.sender, to);
-        return ERC20ConfidentialLib.confTransferAndCallIn(to, encryptedAmount, data, inputProof);
+        return ERC20ConfidentialLib.confTransferAndCallIn(to, encryptedAmount, inputProof, data);
     }
 
     function confidentialTransferFromAndCall(
         address from,
         address to,
-        euint64 amount,
+        sharedEuint64 sharedAmount,
         bytes calldata data
-    ) public virtual nonReentrant returns (euint64) {
+    ) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(from, to);
-        return ERC20ConfidentialLib.confTransferFromAndCall(from, to, amount, data);
+        return ERC20ConfidentialLib.confTransferFromAndCall(from, to, sharedAmount, data);
     }
 
     function confidentialTransferFromAndCall(
         address from,
         address to,
         externalEuint64 encryptedAmount,
-        bytes calldata data,
-        bytes calldata inputProof
-    ) public virtual nonReentrant returns (euint64) {
+        bytes calldata inputProof,
+        bytes calldata data
+    ) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(from, to);
-        return ERC20ConfidentialLib.confTransferFromAndCallIn(from, to, encryptedAmount, data, inputProof);
+        return ERC20ConfidentialLib.confTransferFromAndCallIn(from, to, encryptedAmount, inputProof, data);
     }
 
     // =========================================================================

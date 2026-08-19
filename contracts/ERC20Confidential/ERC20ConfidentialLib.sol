@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { FHE, euint64, externalEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { FHE, euint64, externalEuint64, sharedEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { FHESafeMath } from "../utils/FHESafeMath.sol";
@@ -111,7 +111,6 @@ library ERC20ConfidentialLib {
     event ObserverSet(address indexed observer);
     event ObserverPastGranted(address indexed observer, uint256 count);
 
-    error ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(euint64 value, address user);
     error ERC20ConfidentialUnauthorizedSpender(address holder, address spender);
     error ConfidentialInvalidSender(address sender);
     error ConfidentialInvalidReceiver(address receiver);
@@ -266,11 +265,8 @@ library ERC20ConfidentialLib {
         emit TokensUnshielded(msg.sender, burned);
     }
 
-    function unshieldChecked(euint64 amount) public returns (euint64) {
-        if (!FHE.isAllowed(amount, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(amount, msg.sender);
-        }
-        return unshield(amount);
+    function unshieldChecked(sharedEuint64 sharedAmount) public returns (euint64) {
+        return unshield(FHE.receiveEuint64Param(sharedAmount));
     }
 
     function claimUnshielded(bytes32 id, uint64 decryptedAmount, bytes calldata decryptionProof) public {
@@ -327,28 +323,31 @@ library ERC20ConfidentialLib {
     //  Confidential transfer surface (full orchestration; host wrappers are 1-liners)
     // =========================================================================
 
-    function confTransfer(address to, euint64 value) public returns (euint64 transferred) {
-        if (!FHE.isAllowed(value, msg.sender))
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(value, msg.sender);
-        transferred = _move(msg.sender, to, value);
-        FHE.allowTransient(transferred, msg.sender);
+    // Under delegatecall from the host, `address(this)` is the host token, so the share/receive
+    // pair below binds to the host — not to this library's own address.
+
+    function confTransfer(address to, sharedEuint64 sharedValue) public returns (sharedEuint64) {
+        euint64 value = FHE.receiveEuint64Param(sharedValue);
+        return FHE.shareEuint64(_move(msg.sender, to, value), msg.sender);
     }
 
     function confTransferIn(
         address to,
         externalEuint64 inValue,
         bytes memory inputProof
-    ) public returns (euint64 transferred) {
-        transferred = _move(msg.sender, to, FHE.asEuint64(inValue, inputProof));
-        FHE.allowTransient(transferred, msg.sender);
+    ) public returns (sharedEuint64) {
+        euint64 transferred = _move(msg.sender, to, FHE.asEuint64(inValue, inputProof));
+        return FHE.shareEuint64(transferred, msg.sender);
     }
 
-    function confTransferFrom(address from, address to, euint64 value) public returns (euint64 transferred) {
-        if (!FHE.isAllowed(value, msg.sender))
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(value, msg.sender);
+    function confTransferFrom(
+        address from,
+        address to,
+        sharedEuint64 sharedValue
+    ) public returns (sharedEuint64) {
+        euint64 value = FHE.receiveEuint64Param(sharedValue);
         if (!_isOperator(from, msg.sender)) revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
-        transferred = _move(from, to, value);
-        FHE.allowTransient(transferred, msg.sender);
+        return FHE.shareEuint64(_move(from, to, value), msg.sender);
     }
 
     function confTransferFromIn(
@@ -356,52 +355,52 @@ library ERC20ConfidentialLib {
         address to,
         externalEuint64 inValue,
         bytes memory inputProof
-    ) public returns (euint64 transferred) {
+    ) public returns (sharedEuint64) {
         if (!_isOperator(from, msg.sender)) revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
-        transferred = _move(from, to, FHE.asEuint64(inValue, inputProof));
-        FHE.allowTransient(transferred, msg.sender);
+        euint64 transferred = _move(from, to, FHE.asEuint64(inValue, inputProof));
+        return FHE.shareEuint64(transferred, msg.sender);
     }
 
-    function confTransferAndCall(address to, euint64 amount, bytes calldata data) public returns (euint64 transferred) {
-        if (!FHE.isAllowed(amount, msg.sender))
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(amount, msg.sender);
-        transferred = _moveAndCall(msg.sender, to, amount, data);
-        FHE.allowTransient(transferred, msg.sender);
+    function confTransferAndCall(
+        address to,
+        sharedEuint64 sharedAmount,
+        bytes calldata data
+    ) public returns (sharedEuint64) {
+        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
+        return FHE.shareEuint64(_moveAndCall(msg.sender, to, amount, data), msg.sender);
     }
 
     function confTransferAndCallIn(
         address to,
         externalEuint64 inAmount,
-        bytes calldata data,
-        bytes memory inputProof
-    ) public returns (euint64 transferred) {
-        transferred = _moveAndCall(msg.sender, to, FHE.asEuint64(inAmount, inputProof), data);
-        FHE.allowTransient(transferred, msg.sender);
+        bytes memory inputProof,
+        bytes calldata data
+    ) public returns (sharedEuint64) {
+        euint64 transferred = _moveAndCall(msg.sender, to, FHE.asEuint64(inAmount, inputProof), data);
+        return FHE.shareEuint64(transferred, msg.sender);
     }
 
     function confTransferFromAndCall(
         address from,
         address to,
-        euint64 amount,
+        sharedEuint64 sharedAmount,
         bytes calldata data
-    ) public returns (euint64 transferred) {
-        if (!FHE.isAllowed(amount, msg.sender))
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(amount, msg.sender);
+    ) public returns (sharedEuint64) {
+        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
         if (!_isOperator(from, msg.sender)) revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
-        transferred = _moveAndCall(from, to, amount, data);
-        FHE.allowTransient(transferred, msg.sender);
+        return FHE.shareEuint64(_moveAndCall(from, to, amount, data), msg.sender);
     }
 
     function confTransferFromAndCallIn(
         address from,
         address to,
         externalEuint64 inAmount,
-        bytes calldata data,
-        bytes memory inputProof
-    ) public returns (euint64 transferred) {
+        bytes memory inputProof,
+        bytes calldata data
+    ) public returns (sharedEuint64) {
         if (!_isOperator(from, msg.sender)) revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
-        transferred = _moveAndCall(from, to, FHE.asEuint64(inAmount, inputProof), data);
-        FHE.allowTransient(transferred, msg.sender);
+        euint64 transferred = _moveAndCall(from, to, FHE.asEuint64(inAmount, inputProof), data);
+        return FHE.shareEuint64(transferred, msg.sender);
     }
 
     function isOperator(address holder, address spender) public view returns (bool) {

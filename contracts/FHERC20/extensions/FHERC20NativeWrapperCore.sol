@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { FHE, euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { FHE, euint64, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -77,7 +77,7 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
     receive() external payable {}
 
     /// @inheritdoc IFHERC20NativeWrapper
-    function shieldWrappedNative(address to, uint256 value) public virtual returns (euint64) {
+    function shieldWrappedNative(address to, uint256 value) public virtual returns (sharedEuint64) {
         if (to == address(0)) to = msg.sender;
 
         uint256 alignedValue = value - (value % rate());
@@ -89,14 +89,13 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
         _getFHERC20NativeWrapperStorage()._weth.withdraw(alignedValue);
 
         euint64 shieldedAmountSent = _mint(to, FHE.asEuint64(confidentialAmount));
-        FHE.allowTransient(shieldedAmountSent, msg.sender);
 
         emit ShieldedNative(msg.sender, to, alignedValue);
-        return shieldedAmountSent;
+        return FHE.shareEuint64(shieldedAmountSent, msg.sender);
     }
 
     /// @inheritdoc IFHERC20NativeWrapper
-    function shieldNative(address to) public payable virtual returns (euint64) {
+    function shieldNative(address to) public payable virtual returns (sharedEuint64) {
         if (to == address(0)) to = msg.sender;
 
         uint256 alignedValue = msg.value - (msg.value % rate());
@@ -111,10 +110,9 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
         uint64 confidentialAmount = SafeCast.toUint64(alignedValue / rate());
 
         euint64 shieldedAmountSent = _mint(to, FHE.asEuint64(confidentialAmount));
-        FHE.allowTransient(shieldedAmountSent, msg.sender);
 
         emit ShieldedNative(msg.sender, to, alignedValue);
-        return shieldedAmountSent;
+        return FHE.shareEuint64(shieldedAmountSent, msg.sender);
     }
 
     /**
@@ -124,8 +122,8 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
      * Returns the encrypted amount that was burned. The claim is keyed by a unique id — read it
      * from {getClaim}/{getUserClaims}, NOT from the burned handle.
      */
-    function unshield(address from, address to, uint64 amount) public virtual nonReentrant returns (euint64) {
-        return _unshield(from, to, FHE.asEuint64(amount));
+    function unshield(address from, address to, uint64 amount) public virtual nonReentrant returns (sharedEuint64) {
+        return FHE.shareEuint64(_unshield(from, to, FHE.asEuint64(amount)), msg.sender);
     }
 
     /**
@@ -135,9 +133,13 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
      *
      * Returns the encrypted amount that was burned.
      */
-    function unshield(address from, address to, euint64 amount) public virtual nonReentrant returns (euint64) {
-        if (!FHE.isAllowed(amount, msg.sender)) revert FHERC20UnauthorizedUseOfEncryptedAmount(amount, msg.sender);
-        return _unshield(from, to, amount);
+    function unshield(
+        address from,
+        address to,
+        sharedEuint64 sharedAmount
+    ) public virtual nonReentrant returns (sharedEuint64) {
+        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
+        return FHE.shareEuint64(_unshield(from, to, amount), msg.sender);
     }
 
     /**

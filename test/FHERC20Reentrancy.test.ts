@@ -43,7 +43,7 @@ describe("FHERC20 *AndCall reentrancy (grok-audit-1 #1)", function () {
       const benign = (await (await ethers.getContractFactory("MockFHERC20Receiver")).deploy()) as MockFHERC20Receiver;
       const benignAddr = await benign.getAddress();
 
-      const [encInput, encInputProof] = await bobClient
+      const [encInput, inputProof] = await bobClient
         .encryptInputs([Encryptable.uint64(AMOUNT)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -54,7 +54,7 @@ describe("FHERC20 *AndCall reentrancy (grok-audit-1 #1)", function () {
       const callData = ethers.AbiCoder.defaultAbiCoder().encode(["uint8"], [0]);
       await token
         .connect(bob)
-        ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](benignAddr, encInput, callData, encInputProof);
+        ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](benignAddr, encInput, inputProof, callData);
 
       await expectFHERC20BalancesChange(token, bob.address, 0n);
       await expectFHERC20BalancesChange(token, benignAddr, 0n);
@@ -67,7 +67,7 @@ describe("FHERC20 *AndCall reentrancy (grok-audit-1 #1)", function () {
       ).deploy(attacker.address)) as MaliciousReentrantReceiver;
       const evilAddr = await evil.getAddress();
 
-      const [encInput, encInputProof] = await bobClient
+      const [encInput, inputProof] = await bobClient
         .encryptInputs([Encryptable.uint64(AMOUNT)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -79,7 +79,7 @@ describe("FHERC20 *AndCall reentrancy (grok-audit-1 #1)", function () {
       await expect(
         token
           .connect(bob)
-          ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](evilAddr, encInput, "0x", encInputProof),
+          ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](evilAddr, encInput, inputProof, "0x"),
       ).to.be.reverted;
 
       // Invariant regardless of how the fix is implemented: no theft.
@@ -124,7 +124,7 @@ describe("FHERC20 *AndCall reentrancy (grok-audit-1 #1)", function () {
       ).deploy(attacker.address)) as MaliciousUnshieldReceiver;
       const evilAddr = await evil.getAddress();
 
-      const [encInput, encInputProof] = await bobClient
+      const [encInput, inputProof] = await bobClient
         .encryptInputs([Encryptable.uint64(AMOUNT)])
         .setConsumingContract(await wrapper.getAddress())
         .execute();
@@ -134,7 +134,7 @@ describe("FHERC20 *AndCall reentrancy (grok-audit-1 #1)", function () {
       await expect(
         wrapper
           .connect(bob)
-          ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](evilAddr, encInput, "0x", encInputProof),
+          ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](evilAddr, encInput, inputProof, "0x"),
       ).to.be.reverted;
 
       // Sender not debited, and the attacker never obtained a pending claim on the underlying.
