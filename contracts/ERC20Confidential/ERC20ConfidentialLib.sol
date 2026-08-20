@@ -126,20 +126,21 @@ library ERC20ConfidentialLib {
     /// {ConfidentialTransfer} log. Returns the actually-moved (clamped) amount.
     function update(address from, address to, euint64 amount) public returns (euint64 transferred) {
         ERC20ConfidentialStorage storage $ = _getERC20ConfidentialStorage();
-        ebool success;
         euint64 ptr;
         address obs = $._observer; // compliance observer (0 = none); forward-grant below
 
         if (from != address(0)) {
             euint64 fromBalance = $._confidentialBalances[from];
-            (success, ptr) = FHESafeMath.tryDecrease(fromBalance, amount);
+            // `trySpend` hands back the amount it actually debited, so the credit leg below reads
+            // it straight off the debit instead of re-deriving it with a second `FHE.select`.
+            (, ptr, transferred) = FHESafeMath.trySpend(fromBalance, amount);
             FHE.allowThis(ptr);
             FHE.allow(ptr, from);
             if (obs != address(0)) FHE.allow(ptr, obs);
             $._confidentialBalances[from] = ptr;
+        } else {
+            transferred = amount; // mint: nothing to debit, so the full amount lands
         }
-
-        transferred = from != address(0) ? FHE.select(success, amount, FHE.asEuint64(0)) : amount;
 
         if (to != address(0)) {
             ptr = FHE.add($._confidentialBalances[to], transferred);
