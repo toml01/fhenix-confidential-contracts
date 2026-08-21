@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { euint64, InEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { euint64, externalEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
 
 /**
@@ -58,10 +58,14 @@ interface IERC7984 is IERC165 {
      *
      * Returns the encrypted amount that was actually transferred.
      */
-    function confidentialTransfer(address to, InEuint64 memory encryptedAmount) external returns (euint64);
+    function confidentialTransfer(
+        address to,
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof
+    ) external returns (euint64);
 
     /**
-     * @dev Similar to {confidentialTransfer-address-InEuint64} but without an input proof.
+     * @dev Similar to {confidentialTransfer-address-externalEuint64} but without an input proof.
      *  The caller *must* already be allowed by ACL for the given `amount`.
      */
     function confidentialTransfer(address to, euint64 amount) external returns (euint64 transferred);
@@ -75,17 +79,18 @@ interface IERC7984 is IERC165 {
     function confidentialTransferFrom(
         address from,
         address to,
-        InEuint64 memory encryptedAmount
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof
     ) external returns (euint64);
 
     /**
-     * @dev Similar to {confidentialTransferFrom-address-address-InEuint64} but without an input proof.
+     * @dev Similar to {confidentialTransferFrom-address-address-externalEuint64} but without an input proof.
      * The caller *must* be already allowed by ACL for the given `amount`.
      */
     function confidentialTransferFrom(address from, address to, euint64 amount) external returns (euint64 transferred);
 
     /**
-     * @dev Similar to {confidentialTransfer-address-InEuint64} but with a callback to `to` after
+     * @dev Similar to {confidentialTransfer-address-externalEuint64} but with a callback to `to` after
      * the transfer.
      *
      * The callback is made to the {IERC7984Receiver-onConfidentialTransferReceived} function on the
@@ -94,8 +99,9 @@ interface IERC7984 is IERC165 {
      */
     function confidentialTransferAndCall(
         address to,
-        InEuint64 memory encryptedAmount,
-        bytes calldata data
+        externalEuint64 encryptedAmount,
+        bytes calldata data,
+        bytes calldata inputProof
     ) external returns (euint64 transferred);
 
     /// @dev Similar to {confidentialTransfer-address-euint64} but with a callback to `to` after the transfer.
@@ -106,14 +112,15 @@ interface IERC7984 is IERC165 {
     ) external returns (euint64 transferred);
 
     /**
-     * @dev Similar to {confidentialTransferFrom-address-address-InEuint64} but with a callback to `to`
+     * @dev Similar to {confidentialTransferFrom-address-address-externalEuint64} but with a callback to `to`
      * after the transfer.
      */
     function confidentialTransferFromAndCall(
         address from,
         address to,
-        InEuint64 memory encryptedAmount,
-        bytes calldata data
+        externalEuint64 encryptedAmount,
+        bytes calldata data,
+        bytes calldata inputProof
     ) external returns (euint64 transferred);
 
     /**

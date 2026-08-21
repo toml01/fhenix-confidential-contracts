@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { euint64, InEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC7984 } from "./IERC7984.sol";
 

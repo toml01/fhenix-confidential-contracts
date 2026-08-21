@@ -46,7 +46,7 @@ describe("claimUnshieldedBatch", function () {
     const amounts: bigint[] = [];
     const proofs: string[] = [];
     for (const claim of claims) {
-      const dec = await aliceClient.decryptForTx(claim.ctHash).withoutPermit().execute();
+      const dec = await aliceClient.decryptForTx(claim.ctHash).withoutACP().execute();
       ids.push(claim.id);
       amounts.push(dec.decryptedValue);
       proofs.push(dec.signature);

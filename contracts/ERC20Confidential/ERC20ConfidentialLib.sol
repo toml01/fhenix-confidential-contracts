@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { FHE, euint64, InEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { FHE, euint64, externalEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { FHESafeMath } from "../utils/FHESafeMath.sol";
@@ -273,11 +273,7 @@ library ERC20ConfidentialLib {
         return unshield(amount);
     }
 
-    function claimUnshielded(
-        bytes32 id,
-        uint64 decryptedAmount,
-        bytes calldata decryptionProof
-    ) public {
+    function claimUnshielded(bytes32 id, uint64 decryptedAmount, bytes calldata decryptionProof) public {
         ERC20ConfidentialStorage storage $ = _getERC20ConfidentialStorage();
         Claim memory claim = handleClaim(id, decryptedAmount, decryptionProof);
 
@@ -338,16 +334,16 @@ library ERC20ConfidentialLib {
         FHE.allowTransient(transferred, msg.sender);
     }
 
-    function confTransferIn(address to, InEuint64 memory inValue) public returns (euint64 transferred) {
-        transferred = _move(msg.sender, to, FHE.asEuint64(inValue));
+    function confTransferIn(
+        address to,
+        externalEuint64 inValue,
+        bytes memory inputProof
+    ) public returns (euint64 transferred) {
+        transferred = _move(msg.sender, to, FHE.asEuint64(inValue, inputProof));
         FHE.allowTransient(transferred, msg.sender);
     }
 
-    function confTransferFrom(
-        address from,
-        address to,
-        euint64 value
-    ) public returns (euint64 transferred) {
+    function confTransferFrom(address from, address to, euint64 value) public returns (euint64 transferred) {
         if (!FHE.isAllowed(value, msg.sender))
             revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(value, msg.sender);
         if (!_isOperator(from, msg.sender)) revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
@@ -358,18 +354,15 @@ library ERC20ConfidentialLib {
     function confTransferFromIn(
         address from,
         address to,
-        InEuint64 memory inValue
+        externalEuint64 inValue,
+        bytes memory inputProof
     ) public returns (euint64 transferred) {
         if (!_isOperator(from, msg.sender)) revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
-        transferred = _move(from, to, FHE.asEuint64(inValue));
+        transferred = _move(from, to, FHE.asEuint64(inValue, inputProof));
         FHE.allowTransient(transferred, msg.sender);
     }
 
-    function confTransferAndCall(
-        address to,
-        euint64 amount,
-        bytes calldata data
-    ) public returns (euint64 transferred) {
+    function confTransferAndCall(address to, euint64 amount, bytes calldata data) public returns (euint64 transferred) {
         if (!FHE.isAllowed(amount, msg.sender))
             revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(amount, msg.sender);
         transferred = _moveAndCall(msg.sender, to, amount, data);
@@ -378,10 +371,11 @@ library ERC20ConfidentialLib {
 
     function confTransferAndCallIn(
         address to,
-        InEuint64 memory inAmount,
-        bytes calldata data
+        externalEuint64 inAmount,
+        bytes calldata data,
+        bytes memory inputProof
     ) public returns (euint64 transferred) {
-        transferred = _moveAndCall(msg.sender, to, FHE.asEuint64(inAmount), data);
+        transferred = _moveAndCall(msg.sender, to, FHE.asEuint64(inAmount, inputProof), data);
         FHE.allowTransient(transferred, msg.sender);
     }
 
@@ -401,11 +395,12 @@ library ERC20ConfidentialLib {
     function confTransferFromAndCallIn(
         address from,
         address to,
-        InEuint64 memory inAmount,
-        bytes calldata data
+        externalEuint64 inAmount,
+        bytes calldata data,
+        bytes memory inputProof
     ) public returns (euint64 transferred) {
         if (!_isOperator(from, msg.sender)) revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
-        transferred = _moveAndCall(from, to, FHE.asEuint64(inAmount), data);
+        transferred = _moveAndCall(from, to, FHE.asEuint64(inAmount, inputProof), data);
         FHE.allowTransient(transferred, msg.sender);
     }
 

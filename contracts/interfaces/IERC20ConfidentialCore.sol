@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { euint64, InEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { euint64, externalEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 /**
  * @dev Confidential-only surface for {ERC20ConfidentialCoreUpgradeable}.
@@ -68,13 +68,18 @@ interface IERC20ConfidentialCore {
 
     function confidentialTransfer(address to, euint64 amount) external returns (euint64 transferred);
 
-    function confidentialTransfer(address to, InEuint64 memory encryptedAmount) external returns (euint64 transferred);
+    function confidentialTransfer(
+        address to,
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof
+    ) external returns (euint64 transferred);
 
     function confidentialTransferFrom(address from, address to, euint64 amount) external returns (euint64 transferred);
 
     function confidentialTransferFrom(
         address from,
         address to,
-        InEuint64 memory encryptedAmount
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof
     ) external returns (euint64 transferred);
 }

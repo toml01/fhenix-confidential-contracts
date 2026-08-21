@@ -74,7 +74,7 @@ describe("syncConfidentialTotalSupply pool-donation overflow (audit run-3 F9)", 
 
     await hre.network.provider.send("evm_increaseTime", [11]);
     await hre.network.provider.send("evm_mine");
-    const dec = await aliceClient.decryptForTx(claim.ctHash).withoutPermit().execute();
+    const dec = await aliceClient.decryptForTx(claim.ctHash).withoutACP().execute();
     await expect(h.connect(alice).claimUnshielded(claim.id, dec.decryptedValue, dec.signature)).to.not.be.reverted;
 
     // Alice is paid back the A she burned (rate 1), despite the over-ceiling pool balance.

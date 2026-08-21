@@ -53,12 +53,16 @@ const config: HardhatUserConfig = {
     ],
     overrides: {
       // ERC20ConfidentialLib is deployed ONCE PER CHAIN and linked by address into every
-      // consumer. Pinned at 0.8.26 / runs:1 / cancun because that is what the instances
-      // already deployed on chain were compiled with: at these settings this source produces
-      // byte-identical EXECUTABLE code, so a library deployed from this repo behaves exactly
-      // like those, and hosts linked against either are interchangeable. Retuning would
-      // change the runtime code and require a redeploy. Consumers link by address, so their
-      // own bytecode is unaffected by these settings.
+      // consumer, so the artifact must be reproducible: same source + these settings must
+      // always yield the same bytecode, for explorer verification and for consumers checking
+      // what they linked against.
+      //
+      // NOTE: the cofhe 0.7 migration changed this library's ABI (InEuint64 became
+      // externalEuint64 + a trailing proof), so this build is NOT interchangeable with
+      // library instances deployed before 0.7 — it is a new deployment, and every host must
+      // be relinked against it. The 0.8.26 / runs:1 / cancun pin is retained so that this
+      // version is itself reproducible. Consumers link by address, so their own bytecode is
+      // unaffected by these settings.
       "contracts/ERC20Confidential/ERC20ConfidentialLib.sol": {
         version: "0.8.26",
         settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 1 } },
