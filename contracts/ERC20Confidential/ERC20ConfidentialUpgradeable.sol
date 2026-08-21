@@ -7,14 +7,10 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
 import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { FHE, euint64, InEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IFHERC20, IERC7984 } from "../interfaces/IFHERC20.sol";
 import { IERC20Confidential } from "../interfaces/IERC20Confidential.sol";
 import { ERC20ConfidentialIndicator } from "./ERC20ConfidentialIndicator.sol";
-import { FHESafeMath } from "../utils/FHESafeMath.sol";
-import { FHERC20Utils } from "../FHERC20/utils/FHERC20Utils.sol";
-import { FHERC20WrapperClaimHelperUpgradeable } from "../FHERC20/utils/FHERC20WrapperClaimHelperUpgradeable.sol";
+import { ERC20ConfidentialCoreUpgradeable } from "./ERC20ConfidentialCoreUpgradeable.sol";
 
 /**
  * @title ERC20ConfidentialUpgradeable
@@ -31,51 +27,42 @@ import { FHERC20WrapperClaimHelperUpgradeable } from "../FHERC20/utils/FHERC20Wr
  * encrypted amount publicly decryptable, then {claimUnshielded} verifies the decryption
  * proof and transfers public tokens from the pool.
  *
- * Upgradeable specifics: state lives in an ERC-7201 namespaced storage struct
- * ({ERC20ConfidentialStorage}) to keep the layout collision-free across upgrades, and the
- * contract is set up through {__ERC20Confidential_init} (the initializer pattern) instead of a
- * constructor.
+ * ARCHITECTURE — thin host over the confidential core. The full confidential layer
+ * (shield/unshield/claims incl. batch, the 8 confidential-transfer overloads, operators,
+ * compliance observer, reentrancy guards) is inherited from
+ * {ERC20ConfidentialCoreUpgradeable}, whose heavy FHE orchestration lives in the linked,
+ * delegatecall'd {ERC20ConfidentialLib}. This contract only bridges the core to its OZ
+ * ERC-20 ledger through the three `_ledger*` hooks and supplies metadata/ERC-165/init glue.
+ * Deployment therefore requires linking `ERC20ConfidentialLib` (deployed once per chain;
+ * the OZ upgrades plugin needs `unsafeAllowLinkedLibraries: true`).
+ *
+ * Upgradeable specifics: confidential state lives in the SAME ERC-7201 namespaced struct the
+ * monolithic implementation used (`fherc20.storage.ERC20Confidential`, with an appended
+ * `_observer` field), and the contract is set up through {__ERC20Confidential_init}.
+ * NOTE on upgrading live proxies from the monolithic implementation: the confidential
+ * balance/operator/metadata state carries over unchanged, but PENDING unshield claims do not —
+ * the claim store is now keyed by a unique per-claimant id (see {ERC20ConfidentialLib.createClaim})
+ * instead of the ciphertext handle, and the `Claim` record gained a leading `id` field. Settle
+ * all pending claims before upgrading, or ship a legacy read path.
+ *
+ * NOTE: this contract intentionally does not NOMINALLY inherit {IERC20Confidential} — the
+ * {IERC7984}/{IERC20ConfidentialCore} trees declare overlapping events, which Solidity rejects
+ * when both are in one inheritance graph. The full IERC20Confidential ABI is nevertheless
+ * present (via the core + ERC-20), and {supportsInterface} answers for all of
+ * IERC20Confidential / IFHERC20 / IERC7984 / IERC20.
  */
 abstract contract ERC20ConfidentialUpgradeable is
     Initializable,
     ERC20Upgradeable,
     ERC165Upgradeable,
-    IERC20Confidential,
-    FHERC20WrapperClaimHelperUpgradeable
+    ERC20ConfidentialCoreUpgradeable
 {
-    address public constant CONFIDENTIAL_POOL = address(0x1011000000000000000000000000000000000000);
-
-    /// @custom:storage-location erc7201:fherc20.storage.ERC20Confidential
-    struct ERC20ConfidentialStorage {
-        mapping(address => euint64) _confidentialBalances;
-        mapping(address => mapping(address => uint48)) _operators;
-        ERC20ConfidentialIndicator _indicatorToken;
-        uint8 _decimals;
-        uint8 _confidentialDecimals;
-        uint256 _conversionRate;
-    }
-
-    // keccak256(abi.encode(uint256(keccak256("fherc20.storage.ERC20Confidential")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant ERC20ConfidentialStorageLocation =
-        0xb440e9c559aceef9e2c75ec16e8d26ee97396e4a6978215085407b7ab0709e00;
-
-    function _getERC20ConfidentialStorage() private pure returns (ERC20ConfidentialStorage storage $) {
-        assembly {
-            $.slot := ERC20ConfidentialStorageLocation
-        }
-    }
-
-    error ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(euint64 value, address user);
-    error ERC20ConfidentialUnauthorizedSpender(address holder, address spender);
-    error AmountTooSmallForConfidentialPrecision();
-
     function __ERC20Confidential_init(
         string memory name_,
         string memory symbol_,
         uint8 decimals_
     ) internal onlyInitializing {
         __ERC20_init(name_, symbol_);
-        __FHERC20WrapperClaimHelper_init();
         __ERC20Confidential_init_unchained(name_, symbol_, decimals_);
     }
 
@@ -84,23 +71,23 @@ abstract contract ERC20ConfidentialUpgradeable is
         string memory symbol_,
         uint8 decimals_
     ) internal onlyInitializing {
-        ERC20ConfidentialStorage storage $ = _getERC20ConfidentialStorage();
-        $._indicatorToken = new ERC20ConfidentialIndicator(address(this), name_, symbol_);
-        $._decimals = decimals_;
-        $._confidentialDecimals = decimals_ <= 6 ? decimals_ : 6;
-        $._conversionRate = decimals_ > 6 ? 10 ** (decimals_ - 6) : 1;
+        // Same derivation as the monolithic implementation: confidential decimals clamp to 6
+        // and the conversion rate is 10 ** (decimals_ - confidentialDecimals).
+        __ERC20ConfidentialCore_init(decimals_, 6);
+        _setIndicatorToken(new ERC20ConfidentialIndicator(address(this), name_, symbol_));
     }
 
     // =========================================================================
     //  ERC-165
     // =========================================================================
 
-    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC165Upgradeable) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC20Confidential).interfaceId ||
             interfaceId == type(IFHERC20).interfaceId ||
             interfaceId == type(IERC7984).interfaceId ||
             interfaceId == type(IERC20).interfaceId ||
+            _confidentialSupportsInterface(interfaceId) ||
             super.supportsInterface(interfaceId);
     }
 
@@ -108,303 +95,26 @@ abstract contract ERC20ConfidentialUpgradeable is
     //  Metadata
     // =========================================================================
 
-    function name() public view virtual override(ERC20Upgradeable, IERC7984) returns (string memory) {
-        return super.name();
-    }
-
-    function symbol() public view virtual override(ERC20Upgradeable, IERC7984) returns (string memory) {
-        return super.symbol();
-    }
-
-    function decimals() public view virtual override(ERC20Upgradeable, IERC7984) returns (uint8) {
-        return _getERC20ConfidentialStorage()._decimals;
-    }
-
-    function confidentialDecimals() public view virtual returns (uint8) {
-        return _getERC20ConfidentialStorage()._confidentialDecimals;
-    }
-
-    function contractURI() public view virtual returns (string memory) {
-        return "";
-    }
-
-    function indicatorToken() public view virtual returns (ERC20ConfidentialIndicator) {
-        return _getERC20ConfidentialStorage()._indicatorToken;
-    }
-
-    /// @dev `false` because {balanceOf} returns the real public ERC-20 balance, not an indicator.
-    function balanceOfIsIndicator() public pure virtual returns (bool) {
-        return false;
-    }
-
-    /// @dev Always `0`: {balanceOf} is not an indicator on this token.
-    function indicatorTick() public pure virtual returns (uint256) {
-        return 0;
-    }
-
-    /// @dev Derived on read from {CONFIDENTIAL_POOL}'s public balance, scaled to confidential
-    /// decimals. The returned handle is not a registered ciphertext, so it is informational
-    /// only and cannot be decrypted or used in FHE operations.
-    function confidentialTotalSupply() public view virtual returns (euint64) {
-        return euint64.wrap(bytes32(balanceOf(CONFIDENTIAL_POOL) / _rate()));
-    }
-
-    function confidentialBalanceOf(address account) public view virtual returns (euint64) {
-        return _getERC20ConfidentialStorage()._confidentialBalances[account];
-    }
-
-    function isOperator(address holder, address spender) public view virtual returns (bool) {
-        return holder == spender || block.timestamp <= _getERC20ConfidentialStorage()._operators[holder][spender];
+    /// @dev Read from the shared ERC-7201 struct (set at init), where the core records the
+    /// public ledger's decimals — the same field the monolithic implementation wrote, so the
+    /// value survives an upgrade from it. `name`/`symbol` come from the OZ ERC-20 base unchanged.
+    function decimals() public view virtual override returns (uint8) {
+        return _publicDecimals();
     }
 
     // =========================================================================
-    //  Shield / Unshield
+    //  Ledger hooks — bridge the confidential core to this contract's OZ ERC-20
     // =========================================================================
 
-    function shield(uint256 amount) public virtual {
-        uint256 rate = _rate();
-        uint256 amountToShield = amount - (amount % rate);
-        if (amountToShield == 0) {
-            revert AmountTooSmallForConfidentialPrecision();
-        }
-
-        uint64 amountConfidential = SafeCast.toUint64(amountToShield / rate);
-
-        _transfer(msg.sender, CONFIDENTIAL_POOL, amountToShield);
-        _confidentialUpdate(address(0), msg.sender, FHE.asEuint64(amountConfidential));
-
-        emit TokensShielded(msg.sender, amountToShield);
+    function _ledgerMint(address to, uint256 amount) internal virtual override {
+        _mint(to, amount);
     }
 
-    function unshield(uint64 amount) public virtual returns (euint64) {
-        return _unshield(FHE.asEuint64(amount), amount);
+    function _ledgerTransfer(address from, address to, uint256 amount) internal virtual override {
+        _transfer(from, to, amount);
     }
 
-    function unshield(euint64 amount) public virtual returns (euint64) {
-        if (!FHE.isAllowed(amount, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(amount, msg.sender);
-        }
-        return _unshield(amount, 0);
-    }
-
-    function claimUnshielded(bytes32 ctHash, uint64 decryptedAmount, bytes calldata decryptionProof) public virtual {
-        Claim memory claim = _handleClaim(ctHash, decryptedAmount, decryptionProof);
-
-        uint256 amountPublic = uint256(claim.decryptedAmount) * _rate();
-        _transfer(CONFIDENTIAL_POOL, claim.to, amountPublic);
-
-        emit UnshieldedTokensClaimed(claim.to, ctHash, FHE.wrapEuint64(ctHash), claim.decryptedAmount);
-    }
-
-    /**
-     * @dev Claims multiple pending unshield requests in a single transaction.
-     */
-    function claimUnshieldedBatch(
-        bytes32[] calldata ctHashes,
-        uint64[] calldata decryptedAmounts,
-        bytes[] calldata decryptionProofs
-    ) public virtual {
-        Claim[] memory claims = _handleClaimBatch(ctHashes, decryptedAmounts, decryptionProofs);
-
-        uint256 rate = _rate();
-        for (uint256 i = 0; i < claims.length; i++) {
-            uint256 amountPublic = uint256(claims[i].decryptedAmount) * rate;
-            _transfer(CONFIDENTIAL_POOL, claims[i].to, amountPublic);
-
-            emit UnshieldedTokensClaimed(
-                claims[i].to,
-                claims[i].ctHash,
-                FHE.wrapEuint64(claims[i].ctHash),
-                claims[i].decryptedAmount
-            );
-        }
-    }
-
-    // =========================================================================
-    //  Confidential Transfers
-    // =========================================================================
-
-    function confidentialTransfer(address to, euint64 value) public virtual returns (euint64 transferred) {
-        if (!FHE.isAllowed(value, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(value, msg.sender);
-        }
-        transferred = _confidentialTransfer(msg.sender, to, value);
-        FHE.allowTransient(transferred, msg.sender);
-    }
-
-    function confidentialTransfer(address to, InEuint64 memory inValue) public virtual returns (euint64 transferred) {
-        transferred = _confidentialTransfer(msg.sender, to, FHE.asEuint64(inValue));
-        FHE.allowTransient(transferred, msg.sender);
-    }
-
-    function confidentialTransferFrom(
-        address from,
-        address to,
-        euint64 value
-    ) public virtual returns (euint64 transferred) {
-        if (!FHE.isAllowed(value, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(value, msg.sender);
-        }
-        if (!isOperator(from, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
-        }
-        transferred = _confidentialTransfer(from, to, value);
-        FHE.allowTransient(transferred, msg.sender);
-    }
-
-    function confidentialTransferFrom(
-        address from,
-        address to,
-        InEuint64 memory inValue
-    ) public virtual returns (euint64 transferred) {
-        if (!isOperator(from, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
-        }
-        transferred = _confidentialTransfer(from, to, FHE.asEuint64(inValue));
-        FHE.allowTransient(transferred, msg.sender);
-    }
-
-    function confidentialTransferAndCall(
-        address to,
-        euint64 amount,
-        bytes calldata data
-    ) public virtual returns (euint64 transferred) {
-        if (!FHE.isAllowed(amount, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(amount, msg.sender);
-        }
-        transferred = _confidentialTransferAndCall(msg.sender, to, amount, data);
-        FHE.allowTransient(transferred, msg.sender);
-    }
-
-    function confidentialTransferAndCall(
-        address to,
-        InEuint64 memory encryptedAmount,
-        bytes calldata data
-    ) public virtual returns (euint64 transferred) {
-        transferred = _confidentialTransferAndCall(msg.sender, to, FHE.asEuint64(encryptedAmount), data);
-        FHE.allowTransient(transferred, msg.sender);
-    }
-
-    function confidentialTransferFromAndCall(
-        address from,
-        address to,
-        euint64 amount,
-        bytes calldata data
-    ) public virtual returns (euint64 transferred) {
-        if (!FHE.isAllowed(amount, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedUseOfEncryptedAmount(amount, msg.sender);
-        }
-        if (!isOperator(from, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
-        }
-        transferred = _confidentialTransferAndCall(from, to, amount, data);
-        FHE.allowTransient(transferred, msg.sender);
-    }
-
-    function confidentialTransferFromAndCall(
-        address from,
-        address to,
-        InEuint64 memory encryptedAmount,
-        bytes calldata data
-    ) public virtual returns (euint64 transferred) {
-        if (!isOperator(from, msg.sender)) {
-            revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
-        }
-        transferred = _confidentialTransferAndCall(from, to, FHE.asEuint64(encryptedAmount), data);
-        FHE.allowTransient(transferred, msg.sender);
-    }
-
-    // =========================================================================
-    //  Operators
-    // =========================================================================
-
-    function setOperator(address operator, uint48 until) public virtual {
-        _setOperator(msg.sender, operator, until);
-    }
-
-    // =========================================================================
-    //  Confidential Mint (for inheriting contracts)
-    // =========================================================================
-
-    function _confidentialMint(address to, uint64 amount) internal virtual {
-        _mint(CONFIDENTIAL_POOL, uint256(amount) * _rate());
-        _confidentialUpdate(address(0), to, FHE.asEuint64(amount));
-    }
-
-    // =========================================================================
-    //  Internal helpers
-    // =========================================================================
-
-    function _confidentialTransfer(
-        address from,
-        address to,
-        euint64 value
-    ) internal virtual returns (euint64 transferred) {
-        if (from == address(0)) revert ERC20InvalidSender(address(0));
-        if (to == address(0)) revert ERC20InvalidReceiver(address(0));
-        transferred = _confidentialUpdate(from, to, value);
-    }
-
-    function _confidentialTransferAndCall(
-        address from,
-        address to,
-        euint64 amount,
-        bytes calldata data
-    ) internal virtual returns (euint64 transferred) {
-        euint64 sent = _confidentialTransfer(from, to, amount);
-        ebool success = FHERC20Utils.checkOnTransferReceived(msg.sender, from, to, sent, data);
-        euint64 refund = _confidentialUpdate(to, from, FHE.select(success, FHE.asEuint64(0), sent));
-        transferred = FHE.sub(sent, refund);
-    }
-
-    function _unshield(euint64 amount, uint64 requestedAmount) internal virtual returns (euint64 burned) {
-        burned = _confidentialUpdate(msg.sender, address(0), amount);
-        FHE.allowPublic(burned);
-        _createClaim(msg.sender, requestedAmount, burned);
-        emit TokensUnshielded(msg.sender, burned);
-    }
-
-    function _confidentialUpdate(
-        address from,
-        address to,
-        euint64 amount
-    ) internal virtual returns (euint64 transferred) {
-        ERC20ConfidentialStorage storage $ = _getERC20ConfidentialStorage();
-        ebool success;
-        euint64 ptr;
-
-        if (from != address(0)) {
-            euint64 fromBalance = $._confidentialBalances[from];
-            (success, ptr) = FHESafeMath.tryDecrease(fromBalance, amount);
-            FHE.allowThis(ptr);
-            FHE.allow(ptr, from);
-            $._confidentialBalances[from] = ptr;
-        }
-
-        transferred = from != address(0) ? FHE.select(success, amount, FHE.asEuint64(0)) : amount;
-
-        if (to != address(0)) {
-            ptr = FHE.add($._confidentialBalances[to], transferred);
-            FHE.allowThis(ptr);
-            FHE.allow(ptr, to);
-            $._confidentialBalances[to] = ptr;
-        }
-
-        if (from != address(0)) FHE.allow(transferred, from);
-        if (to != address(0)) FHE.allow(transferred, to);
-        FHE.allowThis(transferred);
-
-        $._indicatorToken.emitConfidentialTransfer(from, to);
-
-        emit ConfidentialTransfer(from, to, transferred);
-    }
-
-    function _setOperator(address holder, address operator, uint48 until) internal virtual {
-        _getERC20ConfidentialStorage()._operators[holder][operator] = until;
-        emit OperatorSet(holder, operator, until);
-    }
-
-    function _rate() internal view virtual returns (uint256) {
-        return _getERC20ConfidentialStorage()._conversionRate;
+    function _ledgerBalanceOf(address account) internal view virtual override returns (uint256) {
+        return balanceOf(account);
     }
 }

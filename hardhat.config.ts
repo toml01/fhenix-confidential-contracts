@@ -39,7 +39,31 @@ const config: HardhatUserConfig = {
           },
         },
       },
+      {
+        // Only for the pinned ERC20ConfidentialLib compile job below.
+        version: "0.8.26",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 1,
+          },
+        },
+      },
     ],
+    overrides: {
+      // ERC20ConfidentialLib is deployed ONCE PER CHAIN and linked by address into every
+      // consumer. Pinned at 0.8.26 / runs:1 / cancun because that is what the instances
+      // already deployed on chain were compiled with: at these settings this source produces
+      // byte-identical EXECUTABLE code, so a library deployed from this repo behaves exactly
+      // like those, and hosts linked against either are interchangeable. Retuning would
+      // change the runtime code and require a redeploy. Consumers link by address, so their
+      // own bytecode is unaffected by these settings.
+      "contracts/ERC20Confidential/ERC20ConfidentialLib.sol": {
+        version: "0.8.26",
+        settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 1 } },
+      },
+    },
   },
   defaultNetwork: "localhost",
   namedAccounts: {
