@@ -20,18 +20,15 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Setup pnpm 9
-        uses: pnpm/action-setup@v3
+      - name: Setup pnpm 10
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Ensure latest npm
-        run: npm i -g npm@latest
 
       - name: Install Dependencies
         run: pnpm i --frozen-lockfile
@@ -49,10 +46,10 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Setup pnpm 9
-        uses: pnpm/action-setup@v3
+      - name: Setup pnpm 10
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Setup Node.js 22.x
         uses: actions/setup-node@v4
@@ -60,8 +57,10 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Ensure latest npm
-        run: npm i -g npm@latest
+      # npm >= 11.5.1 is required for trusted publishing; the major is pinned so a
+      # new npm major (12 broke publishing) can never land here unannounced.
+      - name: Pin npm 11
+        run: npm i -g npm@11
 
       - name: Install Dependencies
         run: pnpm i --frozen-lockfile
@@ -79,10 +78,10 @@ jobs:
         with:
           fetch-depth: 0 # required for tagging
 
-      - name: Setup pnpm 9
-        uses: pnpm/action-setup@v3
+      - name: Setup pnpm 10
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Setup Node.js 22.x
         uses: actions/setup-node@v4
@@ -90,8 +89,10 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Ensure latest npm
-        run: npm i -g npm@latest
+      # npm >= 11.5.1 is required for trusted publishing; the major is pinned so a
+      # new npm major (12 broke publishing) can never land here unannounced.
+      - name: Pin npm 11
+        run: npm i -g npm@11
 
       - name: Install Dependencies
         run: pnpm i --frozen-lockfile
