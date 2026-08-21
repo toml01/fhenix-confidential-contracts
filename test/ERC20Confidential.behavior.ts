@@ -151,37 +151,41 @@ export function shouldBehaveLikeERC20Confidential(
       expect(await token.balanceOf(bob.address)).to.equal(unshieldAmountPublic);
     });
 
-    it("Should unshield using an encrypted (euint64) amount", async function () {
+    it("Should unshield using an encrypted (sharedEuint64) amount", async function () {
       const { token, bob, bobClient } = await setupFixture();
 
+      // The bytes32 overload now takes a `sharedEuint64`, and only a contract can produce one:
+      // sharing goes through FHE.shareEuint64, which an EOA cannot call. So a composing
+      // contract stands in for the holder — it shields its own balance and shares that.
+      const caller = await (await ethers.getContractFactory("MockSharedAmountCaller")).deploy();
+      const callerAddr = await caller.getAddress();
+      const tokenAddr = await token.getAddress();
+
       const initialAmount = ethers.parseEther("100");
-      await token.mint(bob.address, initialAmount);
-      await token.connect(bob).shield(initialAmount);
+      await token.mint(callerAddr, initialAmount);
+      await caller.shieldOwn(tokenAddr, initialAmount);
 
-      // Use bob's full encrypted balance handle as the euint64 input.
-      // Bob has ACL access to it because _confidentialUpdate calls FHE.allow(ptr, from).
-      const encryptedAmount = await token.confidentialBalanceOf(bob.address);
-
-      const tx = await token.connect(bob)["unshield(bytes32)"](encryptedAmount);
+      const tx = await caller.unshieldOwnBalance(tokenAddr);
       await expect(tx).to.emit(token, "TokensUnshielded");
 
-      const { ctHash, claimId } = await getUnshieldRequest(tx, token, bob.address);
+      const { ctHash, claimId } = await getUnshieldRequest(tx, token, callerAddr);
 
       // Claim is keyed by the unique claim id; the burned handle is kept as `ctHash`.
       // The settle amount stays unknown (decryptedAmount = 0) until the decryption proof.
       const pendingClaim = await token.getClaim(claimId);
-      expect(pendingClaim.to).to.equal(bob.address);
+      expect(pendingClaim.to).to.equal(callerAddr);
       expect(BigInt(pendingClaim.ctHash)).to.equal(BigInt(ctHash));
       expect(pendingClaim.decryptedAmount).to.equal(0n);
       expect(pendingClaim.claimed).to.equal(false);
 
       // Confidential balance is now zero.
-      const balanceHandle = await token.confidentialBalanceOf(bob.address);
+      const balanceHandle = await token.confidentialBalanceOf(callerAddr);
       await hre.cofhe.mocks.expectPlaintext(balanceHandle, 0n);
 
       await hre.network.provider.send("evm_increaseTime", [11]);
       await hre.network.provider.send("evm_mine");
 
+      // The burned handle is made public by `unshield`, so any client can produce the proof.
       const decryption = await bobClient.decryptForTx(ctHash).withoutACP().execute();
 
       await expect(
@@ -189,24 +193,37 @@ export function shouldBehaveLikeERC20Confidential(
       ).to.emit(token, "UnshieldedTokensClaimed");
 
       // Full original public amount is returned.
-      expect(await token.balanceOf(bob.address)).to.equal(initialAmount);
+      expect(await token.balanceOf(callerAddr)).to.equal(initialAmount);
 
-      const claimsAfter = await token.getUserClaims(bob.address);
+      const claimsAfter = await token.getUserClaims(callerAddr);
       expect(claimsAfter.length).to.equal(0);
     });
 
     it("Should revert encrypted unshield when caller has no ACL access to the amount", async function () {
-      const { token, bob, alice } = await setupFixture();
+      const { token, bob } = await setupFixture();
 
-      // Bob shields, so bob's balance handle is allowed for bob — not for alice.
+      const caller = await (await ethers.getContractFactory("MockSharedAmountCaller")).deploy();
+      const tokenAddr = await token.getAddress();
+      const acl = await hre.cofhe.mocks.getMockACL();
+
+      // Bob shields, so bob's balance handle is allowed for bob — not for the helper.
       await token.mint(bob.address, ethers.parseEther("10"));
       await token.connect(bob).shield(ethers.parseEther("10"));
 
       const bobBalanceHandle = await token.confidentialBalanceOf(bob.address);
 
-      await expect(token.connect(alice)["unshield(bytes32)"](bobBalanceHandle)).to.be.revertedWithCustomError(
-        token,
-        "ERC20ConfidentialUnauthorizedUseOfEncryptedAmount",
+      // Sharing is what carries provenance now: a contract cannot share a handle it was never
+      // granted access to, so this fails before the token is even called.
+      await expect(caller.unshieldForeignHandle(tokenAddr, bobBalanceHandle)).to.be.revertedWithCustomError(
+        acl,
+        "SenderNotAllowed",
+      );
+
+      // A bare handle pushed across the boundary with no share at all is rejected by the token
+      // when it consumes the parameter.
+      await expect(caller.unshieldWithoutSharing(tokenAddr, bobBalanceHandle)).to.be.revertedWithCustomError(
+        acl,
+        "NotShared",
       );
     });
 
@@ -339,15 +356,13 @@ export function shouldBehaveLikeERC20Confidential(
 
       const transferAmount = BigInt(5 * 1e6);
 
-      const [encTransferInput, encTransferInputProof] = await bobClient
+      const [encTransferInput, inputProof] = await bobClient
         .encryptInputs([Encryptable.uint64(transferAmount)])
         .setConsumingContract(await token.getAddress())
         .execute();
 
       await expect(
-        token
-          .connect(bob)
-          ["confidentialTransfer(address,bytes32,bytes)"](alice.address, encTransferInput, encTransferInputProof),
+        token.connect(bob)["confidentialTransfer(address,bytes32,bytes)"](alice.address, encTransferInput, inputProof),
       ).to.emit(token, "ConfidentialTransfer");
 
       const bobBalance = await token.confidentialBalanceOf(bob.address);
@@ -374,7 +389,7 @@ export function shouldBehaveLikeERC20Confidential(
       expect(await token.isOperator(bob.address, alice.address)).to.equal(true);
 
       const transferAmount = BigInt(3 * 1e6);
-      const [encTransferInput, encTransferInputProof] = await aliceClient
+      const [encTransferInput, inputProof] = await aliceClient
         .encryptInputs([Encryptable.uint64(transferAmount)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -384,7 +399,7 @@ export function shouldBehaveLikeERC20Confidential(
           .connect(alice)
           [
             "confidentialTransferFrom(address,address,bytes32,bytes)"
-          ](bob.address, alice.address, encTransferInput, encTransferInputProof),
+          ](bob.address, alice.address, encTransferInput, inputProof),
       ).to.emit(token, "ConfidentialTransfer");
 
       const bobBalance = await token.confidentialBalanceOf(bob.address);
@@ -401,7 +416,7 @@ export function shouldBehaveLikeERC20Confidential(
       await token.connect(bob).shield(ethers.parseEther("10"));
 
       const transferAmount = BigInt(3 * 1e6);
-      const [encTransferInput, encTransferInputProof] = await aliceClient
+      const [encTransferInput, inputProof] = await aliceClient
         .encryptInputs([Encryptable.uint64(transferAmount)])
         .setConsumingContract(await token.getAddress())
         .execute();
@@ -411,7 +426,7 @@ export function shouldBehaveLikeERC20Confidential(
           .connect(alice)
           [
             "confidentialTransferFrom(address,address,bytes32,bytes)"
-          ](bob.address, alice.address, encTransferInput, encTransferInputProof),
+          ](bob.address, alice.address, encTransferInput, inputProof),
       ).to.be.revertedWithCustomError(token, "ERC20ConfidentialUnauthorizedSpender");
     });
   });
@@ -434,16 +449,16 @@ export function shouldBehaveLikeERC20Confidential(
         const receiver = await deployReceiver();
 
         const transferValue = BigInt(1 * 1e6);
-        const [encTransferInput, encTransferInputProof] = await bobClient
+        const [encTransferInput, inputProof] = await bobClient
           .encryptInputs([Encryptable.uint64(transferValue)])
           .setConsumingContract(await token.getAddress())
           .execute();
 
-        return { token, bob, alice, receiver, encTransferInput, encTransferInputProof, transferValue };
+        return { token, bob, alice, receiver, encTransferInput, inputProof, transferValue };
       }
 
       it("should transfer with callback to receiver (success)", async function () {
-        const { token, bob, receiver, encTransferInput, encTransferInputProof, transferValue } =
+        const { token, bob, receiver, encTransferInput, inputProof, transferValue } =
           await setupTransferAndCallFixture();
         const receiverAddress = await receiver.getAddress();
 
@@ -456,7 +471,7 @@ export function shouldBehaveLikeERC20Confidential(
           .connect(bob)
           [
             "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
-          ](receiverAddress, encTransferInput, callData, encTransferInputProof);
+          ](receiverAddress, encTransferInput, inputProof, callData);
 
         await expect(tx).to.emit(receiver, "ConfidentialTransferCallback").withArgs(true);
 
@@ -465,7 +480,7 @@ export function shouldBehaveLikeERC20Confidential(
       });
 
       it("should transfer with callback to receiver (failure - refund)", async function () {
-        const { token, bob, receiver, encTransferInput, encTransferInputProof } = await setupTransferAndCallFixture();
+        const { token, bob, receiver, encTransferInput, inputProof } = await setupTransferAndCallFixture();
         const receiverAddress = await receiver.getAddress();
 
         await prepExpectFHERC20BalancesChange(token, bob.address);
@@ -478,7 +493,7 @@ export function shouldBehaveLikeERC20Confidential(
             .connect(bob)
             [
               "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
-            ](receiverAddress, encTransferInput, callData, encTransferInputProof),
+            ](receiverAddress, encTransferInput, inputProof, callData),
         ).to.emit(receiver, "ConfidentialTransferCallback");
 
         await expectFHERC20BalancesChange(token, bob.address, 0n);
@@ -486,8 +501,7 @@ export function shouldBehaveLikeERC20Confidential(
       });
 
       it("should transfer with callback to EOA (always succeeds)", async function () {
-        const { token, bob, alice, encTransferInput, encTransferInputProof, transferValue } =
-          await setupTransferAndCallFixture();
+        const { token, bob, alice, encTransferInput, inputProof, transferValue } = await setupTransferAndCallFixture();
 
         await prepExpectFHERC20BalancesChange(token, bob.address);
         await prepExpectFHERC20BalancesChange(token, alice.address);
@@ -496,7 +510,7 @@ export function shouldBehaveLikeERC20Confidential(
           .connect(bob)
           [
             "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
-          ](alice.address, encTransferInput, "0x", encTransferInputProof);
+          ](alice.address, encTransferInput, inputProof, "0x");
 
         await expect(tx).to.emit(token, "ConfidentialTransfer");
 
@@ -505,7 +519,7 @@ export function shouldBehaveLikeERC20Confidential(
       });
 
       it("should revert with custom error from callback", async function () {
-        const { token, bob, receiver, encTransferInput, encTransferInputProof } = await setupTransferAndCallFixture();
+        const { token, bob, receiver, encTransferInput, inputProof } = await setupTransferAndCallFixture();
 
         const callData = ethers.AbiCoder.defaultAbiCoder().encode(["uint8"], [2]);
 
@@ -514,21 +528,21 @@ export function shouldBehaveLikeERC20Confidential(
             .connect(bob)
             [
               "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
-            ](await receiver.getAddress(), encTransferInput, callData, encTransferInputProof),
+            ](await receiver.getAddress(), encTransferInput, inputProof, callData),
         )
           .to.be.revertedWithCustomError(receiver, "InvalidInput")
           .withArgs(2);
       });
 
       it("should revert on transfer to zero address", async function () {
-        const { token, bob, encTransferInput, encTransferInputProof } = await setupTransferAndCallFixture();
+        const { token, bob, encTransferInput, inputProof } = await setupTransferAndCallFixture();
 
         await expect(
           token
             .connect(bob)
             [
               "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
-            ](ZeroAddress, encTransferInput, "0x", encTransferInputProof),
+            ](ZeroAddress, encTransferInput, inputProof, "0x"),
         ).to.be.revertedWithCustomError(token, "ConfidentialInvalidReceiver"); // was ERC20InvalidReceiver pre-Core
       });
     });
@@ -555,7 +569,7 @@ export function shouldBehaveLikeERC20Confidential(
         await token.connect(bob).setOperator(alice.address, timestamp);
 
         const transferValue = BigInt(1 * 1e6);
-        const [encTransferInput, encTransferInputProof] = await aliceClient
+        const [encTransferInput, inputProof] = await aliceClient
           .encryptInputs([Encryptable.uint64(transferValue)])
           .setConsumingContract(await token.getAddress())
           .execute();
@@ -569,7 +583,7 @@ export function shouldBehaveLikeERC20Confidential(
           .connect(alice)
           [
             "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-          ](bob.address, receiverAddress, encTransferInput, callData, encTransferInputProof);
+          ](bob.address, receiverAddress, encTransferInput, inputProof, callData);
 
         await expect(tx).to.emit(receiver, "ConfidentialTransferCallback").withArgs(true);
 
@@ -585,7 +599,7 @@ export function shouldBehaveLikeERC20Confidential(
         await token.connect(bob).setOperator(alice.address, timestamp);
 
         const transferValue = BigInt(1 * 1e6);
-        const [encTransferInput, encTransferInputProof] = await aliceClient
+        const [encTransferInput, inputProof] = await aliceClient
           .encryptInputs([Encryptable.uint64(transferValue)])
           .setConsumingContract(await token.getAddress())
           .execute();
@@ -600,7 +614,7 @@ export function shouldBehaveLikeERC20Confidential(
             .connect(alice)
             [
               "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-            ](bob.address, receiverAddress, encTransferInput, callData, encTransferInputProof),
+            ](bob.address, receiverAddress, encTransferInput, inputProof, callData),
         ).to.emit(receiver, "ConfidentialTransferCallback");
 
         await expectFHERC20BalancesChange(token, bob.address, 0n);
@@ -614,7 +628,7 @@ export function shouldBehaveLikeERC20Confidential(
         await token.connect(bob).setOperator(eve.address, timestamp);
 
         const transferValue = BigInt(1 * 1e6);
-        const [encTransferInput, encTransferInputProof] = await eveClient
+        const [encTransferInput, inputProof] = await eveClient
           .encryptInputs([Encryptable.uint64(transferValue)])
           .setConsumingContract(await token.getAddress())
           .execute();
@@ -626,7 +640,7 @@ export function shouldBehaveLikeERC20Confidential(
           .connect(eve)
           [
             "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-          ](bob.address, alice.address, encTransferInput, "0x", encTransferInputProof);
+          ](bob.address, alice.address, encTransferInput, inputProof, "0x");
 
         await expect(tx).to.emit(token, "ConfidentialTransfer");
 
@@ -638,7 +652,7 @@ export function shouldBehaveLikeERC20Confidential(
         const { token, bob, alice, receiver, aliceClient } = await setupTransferFromAndCallFixture();
 
         const transferValue = BigInt(1 * 1e6);
-        const [encTransferInput, encTransferInputProof] = await aliceClient
+        const [encTransferInput, inputProof] = await aliceClient
           .encryptInputs([Encryptable.uint64(transferValue)])
           .setConsumingContract(await token.getAddress())
           .execute();
@@ -650,7 +664,7 @@ export function shouldBehaveLikeERC20Confidential(
             .connect(alice)
             [
               "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-            ](bob.address, await receiver.getAddress(), encTransferInput, callData, encTransferInputProof),
+            ](bob.address, await receiver.getAddress(), encTransferInput, inputProof, callData),
         ).to.be.revertedWithCustomError(token, "ERC20ConfidentialUnauthorizedSpender");
       });
 
@@ -661,7 +675,7 @@ export function shouldBehaveLikeERC20Confidential(
         await token.connect(bob).setOperator(alice.address, timestamp);
 
         const transferValue = BigInt(1 * 1e6);
-        const [encTransferInput, encTransferInputProof] = await aliceClient
+        const [encTransferInput, inputProof] = await aliceClient
           .encryptInputs([Encryptable.uint64(transferValue)])
           .setConsumingContract(await token.getAddress())
           .execute();
@@ -673,7 +687,7 @@ export function shouldBehaveLikeERC20Confidential(
             .connect(alice)
             [
               "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-            ](bob.address, await receiver.getAddress(), encTransferInput, callData, encTransferInputProof),
+            ](bob.address, await receiver.getAddress(), encTransferInput, inputProof, callData),
         )
           .to.be.revertedWithCustomError(receiver, "InvalidInput")
           .withArgs(2);
@@ -686,7 +700,7 @@ export function shouldBehaveLikeERC20Confidential(
         await token.connect(bob).setOperator(alice.address, timestamp);
 
         const transferValue = BigInt(1 * 1e6);
-        const [encTransferInput, encTransferInputProof] = await aliceClient
+        const [encTransferInput, inputProof] = await aliceClient
           .encryptInputs([Encryptable.uint64(transferValue)])
           .setConsumingContract(await token.getAddress())
           .execute();
@@ -696,7 +710,7 @@ export function shouldBehaveLikeERC20Confidential(
             .connect(alice)
             [
               "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
-            ](bob.address, ZeroAddress, encTransferInput, "0x", encTransferInputProof),
+            ](bob.address, ZeroAddress, encTransferInput, inputProof, "0x"),
         ).to.be.revertedWithCustomError(token, "ConfidentialInvalidReceiver"); // was ERC20InvalidReceiver pre-Core
       });
     });

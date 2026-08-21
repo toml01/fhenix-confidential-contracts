@@ -16,8 +16,10 @@ contract MockFHERC20Vault {
 
     function deposit(externalEuint64 inAmount, bytes calldata inputProof) external {
         euint64 amount = FHE.asEuint64(inAmount, inputProof);
-        FHE.allow(amount, address(asset));
-        euint64 transferred = asset.confidentialTransferFrom(msg.sender, address(this), amount);
+        euint64 transferred = FHE.receiveEuint64FromCall(
+            asset.confidentialTransferFrom(msg.sender, address(this), FHE.shareEuint64(amount, address(asset))),
+            address(asset)
+        );
         (, euint64 updated) = FHESafeMath.tryAdd(balances[msg.sender], transferred);
         balances[msg.sender] = updated;
     }

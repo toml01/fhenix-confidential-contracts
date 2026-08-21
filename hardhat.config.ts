@@ -58,11 +58,14 @@ const config: HardhatUserConfig = {
       // what they linked against.
       //
       // NOTE: the cofhe 0.7 migration changed this library's ABI (InEuint64 became
-      // externalEuint64 + a trailing proof), so this build is NOT interchangeable with
-      // library instances deployed before 0.7 — it is a new deployment, and every host must
-      // be relinked against it. The 0.8.26 / runs:1 / cancun pin is retained so that this
-      // version is itself reproducible. Consumers link by address, so their own bytecode is
-      // unaffected by these settings.
+      // externalEuint64 + a separate proof), and the sharedEuintXX migration changed it again
+      // (the confidential values crossing the boundary became sharedEuint64, and inputProof
+      // moved ahead of `bytes data` on the *AndCall variants). So this build is NOT
+      // interchangeable with library instances deployed before 0.7 — it is a new deployment,
+      // and every host must be relinked against it. Note that neither change moved a single
+      // selector, so a stale link fails at runtime rather than at link time. The 0.8.26 /
+      // runs:1 / cancun pin is retained so that this version is itself reproducible. Consumers
+      // link by address, so their own bytecode is unaffected by these settings.
       "contracts/ERC20Confidential/ERC20ConfidentialLib.sol": {
         version: "0.8.26",
         settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 1 } },

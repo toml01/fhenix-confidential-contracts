@@ -322,28 +322,29 @@ describe("FHERC20ERC20Wrapper", function () {
       expect(claimsAfter.length).to.equal(0);
     });
 
-    it("should complete unshield and claim flow with encrypted amount (euint64)", async function () {
+    it("should complete unshield and claim flow with encrypted amount (sharedEuint64)", async function () {
       const { eBTC, bob, alice, wBTC, bobClient } = await setupFixture();
+
+      // The bytes32 overload now takes a `sharedEuint64`, and only a contract can produce one:
+      // sharing goes through FHE.shareEuint64, which an EOA cannot call. A composing contract
+      // holds the confidential balance and shares it with the wrapper.
+      const caller = await (await ethers.getContractFactory("MockSharedAmountCaller")).deploy();
+      const callerAddr = await caller.getAddress();
 
       const unshieldConfidentialValue = 1_000_000n;
       const unshieldERC20Value = unshieldConfidentialValue * conversionRate; // 1e8
 
-      // Shield exactly the unshield amount so balance handle matches the desired value
+      // Shield exactly the unshield amount into the helper so its balance handle matches.
       await wBTC.mint(bob, unshieldERC20Value);
       await wBTC.connect(bob).approve(eBTC.target, unshieldERC20Value);
-      await eBTC.connect(bob).shield(bob, unshieldERC20Value);
+      await eBTC.connect(bob).shield(callerAddr, unshieldERC20Value);
 
-      // Get bob's encrypted balance handle as the euint64 input
-      const encryptedAmount = await eBTC.confidentialBalanceOf(bob.address);
+      await prepExpectFHERC20BalancesChange(eBTC, callerAddr);
 
-      await prepExpectFHERC20BalancesChange(eBTC, bob.address);
-
-      const tx = await eBTC
-        .connect(bob)
-        ["unshield(address,address,bytes32)"](bob.address, alice.address, encryptedAmount);
+      const tx = await caller.unshieldOwnBalanceOnWrapper(await eBTC.getAddress(), alice.address);
 
       await expect(tx).to.emit(eBTC, "Unshielded");
-      await expectFHERC20BalancesChange(eBTC, bob.address, -1n * unshieldConfidentialValue);
+      await expectFHERC20BalancesChange(eBTC, callerAddr, -1n * unshieldConfidentialValue);
 
       const { ctHash, claimId } = await getUnshieldRequest(tx, eBTC, alice.address);
 

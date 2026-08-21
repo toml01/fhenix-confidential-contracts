@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { euint64, externalEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { euint64, externalEuint64, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
 
 /**
@@ -56,19 +56,23 @@ interface IERC7984 is IERC165 {
     /**
      * @dev Transfers the encrypted amount `encryptedAmount` to `to`.
      *
+     * `inputProof` is the batch signature returned alongside the handle by `encryptInputs`, and must
+     * have been signed for this contract as the consuming contract.
+     *
      * Returns the encrypted amount that was actually transferred.
      */
     function confidentialTransfer(
         address to,
         externalEuint64 encryptedAmount,
         bytes calldata inputProof
-    ) external returns (euint64);
+    ) external returns (sharedEuint64);
 
     /**
-     * @dev Similar to {confidentialTransfer-address-externalEuint64} but without an input proof.
-     *  The caller *must* already be allowed by ACL for the given `amount`.
+     * @dev Similar to {confidentialTransfer-address-externalEuint64-bytes} but for a value already
+     * held by another contract. The caller shares the handle with {FHE-shareEuint64} naming this
+     * token; the token consumes that share, so the sharer must be the direct caller.
      */
-    function confidentialTransfer(address to, euint64 amount) external returns (euint64 transferred);
+    function confidentialTransfer(address to, sharedEuint64 sharedAmount) external returns (sharedEuint64 transferred);
 
     /**
      * @dev Transfers the encrypted amount `encryptedAmount` from `from` to `to`.
@@ -81,17 +85,21 @@ interface IERC7984 is IERC165 {
         address to,
         externalEuint64 encryptedAmount,
         bytes calldata inputProof
-    ) external returns (euint64);
+    ) external returns (sharedEuint64);
 
     /**
-     * @dev Similar to {confidentialTransferFrom-address-address-externalEuint64} but without an input proof.
-     * The caller *must* be already allowed by ACL for the given `amount`.
+     * @dev Similar to {confidentialTransferFrom-address-address-externalEuint64-bytes} but for a value
+     * already held by another contract, shared with {FHE-shareEuint64} naming this token.
      */
-    function confidentialTransferFrom(address from, address to, euint64 amount) external returns (euint64 transferred);
+    function confidentialTransferFrom(
+        address from,
+        address to,
+        sharedEuint64 sharedAmount
+    ) external returns (sharedEuint64 transferred);
 
     /**
-     * @dev Similar to {confidentialTransfer-address-externalEuint64} but with a callback to `to` after
-     * the transfer.
+     * @dev Similar to {confidentialTransfer-address-externalEuint64-bytes} but with a callback to `to`
+     * after the transfer.
      *
      * The callback is made to the {IERC7984Receiver-onConfidentialTransferReceived} function on the
      * to address with the actual transferred amount (may differ from the given `encryptedAmount`) and the given
@@ -100,38 +108,38 @@ interface IERC7984 is IERC165 {
     function confidentialTransferAndCall(
         address to,
         externalEuint64 encryptedAmount,
-        bytes calldata data,
-        bytes calldata inputProof
-    ) external returns (euint64 transferred);
+        bytes calldata inputProof,
+        bytes calldata data
+    ) external returns (sharedEuint64 transferred);
 
-    /// @dev Similar to {confidentialTransfer-address-euint64} but with a callback to `to` after the transfer.
+    /// @dev Similar to {confidentialTransfer-address-sharedEuint64} but with a callback to `to` after the transfer.
     function confidentialTransferAndCall(
         address to,
-        euint64 amount,
+        sharedEuint64 sharedAmount,
         bytes calldata data
-    ) external returns (euint64 transferred);
+    ) external returns (sharedEuint64 transferred);
 
     /**
-     * @dev Similar to {confidentialTransferFrom-address-address-externalEuint64} but with a callback to `to`
-     * after the transfer.
+     * @dev Similar to {confidentialTransferFrom-address-address-externalEuint64-bytes} but with a
+     * callback to `to` after the transfer.
      */
     function confidentialTransferFromAndCall(
         address from,
         address to,
         externalEuint64 encryptedAmount,
-        bytes calldata data,
-        bytes calldata inputProof
-    ) external returns (euint64 transferred);
+        bytes calldata inputProof,
+        bytes calldata data
+    ) external returns (sharedEuint64 transferred);
 
     /**
-     * @dev Similar to {confidentialTransferFrom-address-address-euint64} but with a callback to `to`
+     * @dev Similar to {confidentialTransferFrom-address-address-sharedEuint64} but with a callback to `to`
      * after the transfer.
      *
      */
     function confidentialTransferFromAndCall(
         address from,
         address to,
-        euint64 amount,
+        sharedEuint64 sharedAmount,
         bytes calldata data
-    ) external returns (euint64 transferred);
+    ) external returns (sharedEuint64 transferred);
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { FHE, euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import { FHE, euint64, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 import { IERC1363Receiver } from "@openzeppelin/contracts/interfaces/IERC1363Receiver.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
@@ -96,13 +96,12 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper, 
      *
      * Returns the amount of shielded token sent.
      */
-    function shield(address to, uint256 amount) public virtual override returns (euint64) {
+    function shield(address to, uint256 amount) public virtual override returns (sharedEuint64) {
         SafeERC20.safeTransferFrom(IERC20(underlying()), msg.sender, address(this), amount - (amount % rate()));
 
         euint64 shieldedAmountSent = _mint(to, FHE.asEuint64(SafeCast.toUint64(amount / rate())));
-        FHE.allowTransient(shieldedAmountSent, msg.sender);
 
-        return shieldedAmountSent;
+        return FHE.shareEuint64(shieldedAmountSent, msg.sender);
     }
 
     /**
@@ -112,8 +111,8 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper, 
      * Returns the encrypted amount that was burned. The claim is keyed by a unique id — read it
      * from {getClaim}/{getUserClaims}, NOT from the burned handle.
      */
-    function unshield(address from, address to, uint64 amount) public virtual nonReentrant returns (euint64) {
-        return _unshield(from, to, FHE.asEuint64(amount));
+    function unshield(address from, address to, uint64 amount) public virtual nonReentrant returns (sharedEuint64) {
+        return FHE.shareEuint64(_unshield(from, to, FHE.asEuint64(amount)), msg.sender);
     }
 
     /**
@@ -123,9 +122,13 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper, 
      *
      * Returns the encrypted amount that was burned.
      */
-    function unshield(address from, address to, euint64 amount) public virtual nonReentrant returns (euint64) {
-        if (!FHE.isAllowed(amount, msg.sender)) revert FHERC20UnauthorizedUseOfEncryptedAmount(amount, msg.sender);
-        return _unshield(from, to, amount);
+    function unshield(
+        address from,
+        address to,
+        sharedEuint64 sharedAmount
+    ) public virtual nonReentrant returns (sharedEuint64) {
+        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
+        return FHE.shareEuint64(_unshield(from, to, amount), msg.sender);
     }
 
     /**

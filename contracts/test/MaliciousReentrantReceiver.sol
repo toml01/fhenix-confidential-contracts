@@ -44,7 +44,7 @@ contract MaliciousReentrantReceiver is IERC7984Receiver {
             reentered = true;
             // Re-enter the *plain* transfer (no callback, since `attacker` is an
             // EOA) and move our entire credited balance out of reach of the refund.
-            IERC20ConfidentialCore(msg.sender).confidentialTransfer(attacker, amount);
+            IERC20ConfidentialCore(msg.sender).confidentialTransfer(attacker, FHE.shareEuint64(amount, msg.sender));
         }
 
         // Signal "rejected — please refund the sender". The refund leg will try to
