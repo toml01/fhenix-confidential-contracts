@@ -366,25 +366,26 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
 
     function _update(address from, address to, euint64 amount) internal virtual returns (euint64 transferred) {
         FHERC20Storage storage $ = _getFHERC20Storage();
-        ebool success;
         euint64 ptr;
 
         if (from == address(0)) {
+            ebool success;
             (success, ptr) = FHESafeMath.tryIncrease($._totalSupply, amount);
             FHE.allowThis(ptr);
             $._totalSupply = ptr;
             $._indicatedTotalSupply = _incrementIndicator($._indicatedTotalSupply);
+            transferred = FHE.select(success, amount, FHE.asEuint64(0));
         } else {
             euint64 fromBalance = $._balances[from];
             if (!FHE.isInitialized(fromBalance)) revert FHERC20ZeroBalance(from);
-            (success, ptr) = FHESafeMath.tryDecrease(fromBalance, amount);
+            // `trySpend` returns the amount actually debited, so the credit leg below needs no
+            // second `FHE.select` on `amount`.
+            (, ptr, transferred) = FHESafeMath.trySpend(fromBalance, amount);
             FHE.allowThis(ptr);
             FHE.allow(ptr, from);
             $._balances[from] = ptr;
             $._indicatedBalances[from] = _decrementIndicator($._indicatedBalances[from]);
         }
-
-        transferred = FHE.select(success, amount, FHE.asEuint64(0));
 
         if (to == address(0)) {
             ptr = FHE.sub($._totalSupply, transferred);

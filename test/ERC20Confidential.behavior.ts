@@ -60,6 +60,23 @@ async function getUnshieldRequest(
   return { ctHash, claimId: claim.id };
 }
 
+/// The amount actually moved, read off the ConfidentialTransfer log. `update()` derives it from the
+/// debit itself, so it is the authoritative record of what the transfer did — the requested amount
+/// is only an upper bound on it.
+async function confidentialTransferAmount(
+  tx: ContractTransactionResponse,
+  contract: ERC20ConfidentialToken,
+): Promise<string> {
+  const receipt = await tx.wait();
+  for (const log of receipt!.logs) {
+    try {
+      const parsed = contract.interface.parseLog({ topics: log.topics as string[], data: log.data });
+      if (parsed?.name === "ConfidentialTransfer") return parsed.args.amount;
+    } catch {}
+  }
+  throw new Error("ConfidentialTransfer event not found");
+}
+
 export function shouldBehaveLikeERC20Confidential(
   setupFixture: SetupFixtureFn,
   deployWithDecimals: DeployWithDecimalsFn,
@@ -373,6 +390,61 @@ export function shouldBehaveLikeERC20Confidential(
 
       expect(await indicator.balanceOf(bob.address)).to.equal(10110005000n);
       expect(await indicator.balanceOf(alice.address)).to.equal(10110005001n);
+    });
+
+    // The debit is saturating and all-or-nothing (FHESafeMath.trySpend): an over-balance transfer
+    // moves NOTHING rather than reverting or draining what is there. Asserted on the event's
+    // transferred handle as well as the balances, since the credit leg is driven by exactly that
+    // value — if it ever reported the requested amount instead of the debited one, the recipient
+    // would be credited tokens the sender never lost.
+    it("Should no-op a transfer that exceeds the balance", async function () {
+      const { token, bob, alice, bobClient } = await setupFixture();
+
+      await token.mint(bob.address, ethers.parseEther("10"));
+      await token.connect(bob).shield(ethers.parseEther("10")); // 10e6 confidential units
+
+      const [encTransferInput, inputProof] = await bobClient
+        .encryptInputs([Encryptable.uint64(BigInt(20 * 1e6))]) // twice the balance
+        .setConsumingContract(await token.getAddress())
+        .execute();
+
+      const tx = await token
+        .connect(bob)
+        ["confidentialTransfer(address,bytes32,bytes)"](alice.address, encTransferInput, inputProof);
+
+      await hre.cofhe.mocks.expectPlaintext(await confidentialTransferAmount(tx, token), 0n);
+      await hre.cofhe.mocks.expectPlaintext(await token.confidentialBalanceOf(bob.address), BigInt(10 * 1e6));
+      await hre.cofhe.mocks.expectPlaintext(await token.confidentialBalanceOf(alice.address), 0n);
+    });
+
+    // The sender's balance slot is still the zero handle here, which is a distinct trySpend branch
+    // from "initialized but too small" — and one this path can actually reach, since the
+    // confidential core has no zero-balance guard (unlike FHERC20Core, which reverts). It must
+    // no-op rather than revert, and must leave both parties holding real, decryptable handles.
+    it("Should no-op a transfer from an account that never held a confidential balance", async function () {
+      const { token, bob, alice, aliceClient } = await setupFixture();
+
+      await token.mint(bob.address, ethers.parseEther("10"));
+      await token.connect(bob).shield(ethers.parseEther("10"));
+
+      // Alice never shielded: no ciphertext was ever written for her balance.
+      expect(await token.confidentialBalanceOf(alice.address)).to.equal(ethers.ZeroHash);
+
+      const [encTransferInput, inputProof] = await aliceClient
+        .encryptInputs([Encryptable.uint64(BigInt(1 * 1e6))])
+        .setConsumingContract(await token.getAddress())
+        .execute();
+
+      const tx = await token
+        .connect(alice)
+        ["confidentialTransfer(address,bytes32,bytes)"](bob.address, encTransferInput, inputProof);
+
+      await hre.cofhe.mocks.expectPlaintext(await confidentialTransferAmount(tx, token), 0n);
+      await hre.cofhe.mocks.expectPlaintext(await token.confidentialBalanceOf(bob.address), BigInt(10 * 1e6));
+
+      const aliceBalance = await token.confidentialBalanceOf(alice.address);
+      expect(aliceBalance).to.not.equal(ethers.ZeroHash);
+      await hre.cofhe.mocks.expectPlaintext(aliceBalance, 0n);
     });
   });
 
