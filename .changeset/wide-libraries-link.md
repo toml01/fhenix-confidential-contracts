@@ -1,5 +1,5 @@
 ---
-"fhenix-confidential-contracts": major
+"fhenix-confidential-contracts": minor
 ---
 
 Split the confidential layer into shared cores plus an external linked library, so hosts fit under EIP-170.

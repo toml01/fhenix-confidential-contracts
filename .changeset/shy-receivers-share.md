@@ -1,5 +1,5 @@
 ---
-"fhenix-confidential-contracts": major
+"fhenix-confidential-contracts": minor
 ---
 
 Move the transfer-callback boundary onto the `sharedEuintXX` types.

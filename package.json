@@ -45,7 +45,7 @@
     "beta:snapshot": "changeset version --snapshot beta && changeset publish --tag beta"
   },
   "dependencies": {
-    "@fhenixprotocol/cofhe-contracts": "0.2.0-beta.3",
+    "@fhenixprotocol/cofhe-contracts": "0.2.0",
     "@openzeppelin/contracts": "^5.2.0",
     "@openzeppelin/contracts-upgradeable": "5.4.0",
     "@typechain/ethers-v6": "~0.5.1",

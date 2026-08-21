@@ -1,5 +1,5 @@
 ---
-"fhenix-confidential-contracts": major
+"fhenix-confidential-contracts": minor
 ---
 
 Migrate to `@cofhe/*` 0.7 and `@fhenixprotocol/cofhe-contracts` 0.2.x (batch input verification).

@@ -1,5 +1,5 @@
 ---
-"fhenix-confidential-contracts": major
+"fhenix-confidential-contracts": minor
 ---
 
 Move the remaining confidential boundary values onto the `sharedEuintXX` types, and pair `inputProof` with the handles it authenticates.
