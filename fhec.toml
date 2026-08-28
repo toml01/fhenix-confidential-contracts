@@ -21,16 +21,16 @@ version = "0.2.x"
 [acl]
 # "suggest", not the default "insert".
 #
-# The safety objections are gone: fhec no longer guesses `FHE.allowSender` on a
-# slot it cannot prove is keyed by `msg.sender` (fhec #65, #81). Everything
-# `insert` writes today is safe.
+# The safety objections are gone (fhec #65, #81) and the redundant-grant one too
+# (#86). Everything `insert` writes today is safe, and it now reproduces this
+# repo's hand-written policy everywhere except one site.
 #
-# What still blocks it is bytecode stability. R1 does not know that
-# `FHE.allowPublic` subsumes `FHE.allowThis`, so it would append a redundant
-# grant in `ERC20ConfidentialLib.syncConfidentialTotalSupply` — and that library
-# is pinned and linked by address, so any added instruction forces a redeploy
-# and a relink of every host. Tracked as fhec #85.
+# That site is `ERC20ConfidentialLib.unshieldChecked`, where rule R3 hoists the
+# return and adds `FHE.allowTransient(_, msg.sender)`. The library is
+# delegatecall-linked and bytecode-pinned, and its only caller already shares the
+# value, so the grant is redundant but would force a redeploy and a relink of
+# every host. Tracked as fhec #88.
 #
-# Revisit when #85 lands: at that point `insert` should reproduce this repo's
-# hand-written policy exactly, and the manual grants could be deleted.
+# `acl.mode` is global, so one library site keeps the whole repo on "suggest".
+# When #88 lands, switch to "insert" and delete the 35 manual FHE.allow* calls.
 mode = "suggest"
