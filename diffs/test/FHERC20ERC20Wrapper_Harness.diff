@@ -1,0 +1,18 @@
+# contracts/test/FHERC20ERC20Wrapper_Harness.sol  ->  contracts/test/FHERC20ERC20Wrapper_Harness.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/test/FHERC20ERC20Wrapper_Harness.sol b/contracts/test/FHERC20ERC20Wrapper_Harness.fsol
+index 9918ee1..02b918d 100644
+--- a/contracts/test/FHERC20ERC20Wrapper_Harness.sol
++++ b/contracts/test/FHERC20ERC20Wrapper_Harness.fsol
+@@ -3,8 +3,8 @@ pragma solidity ^0.8.25;
+ 
+ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+ import { IERC20Metadata } from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
+-import { FHERC20 } from "../FHERC20/FHERC20.sol";
+-import { FHERC20ERC20Wrapper } from "../FHERC20/extensions/FHERC20ERC20Wrapper.sol";
++import { FHERC20 } from "../FHERC20/FHERC20.fsol";
++import { FHERC20ERC20Wrapper } from "../FHERC20/extensions/FHERC20ERC20Wrapper.fsol";
+ 
+ contract FHERC20ERC20Wrapper_Harness is FHERC20ERC20Wrapper {
+     constructor(

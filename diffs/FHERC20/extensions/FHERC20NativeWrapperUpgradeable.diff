@@ -1,0 +1,24 @@
+# contracts/FHERC20/extensions/FHERC20NativeWrapperUpgradeable.sol  ->  contracts/FHERC20/extensions/FHERC20NativeWrapperUpgradeable.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/FHERC20/extensions/FHERC20NativeWrapperUpgradeable.sol b/contracts/FHERC20/extensions/FHERC20NativeWrapperUpgradeable.fsol
+index 5403747..e887457 100644
+--- a/contracts/FHERC20/extensions/FHERC20NativeWrapperUpgradeable.sol
++++ b/contracts/FHERC20/extensions/FHERC20NativeWrapperUpgradeable.fsol
+@@ -3,11 +3,11 @@ pragma solidity ^0.8.25;
+ 
+ import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+ import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
+-import { IFHERC20NativeWrapper } from "../../interfaces/IFHERC20NativeWrapper.sol";
+-import { IWETH } from "../../interfaces/IWETH.sol";
+-import { FHERC20Upgradeable } from "../FHERC20Upgradeable.sol";
+-import { FHERC20Core } from "../FHERC20Core.sol";
+-import { FHERC20NativeWrapperCore } from "./FHERC20NativeWrapperCore.sol";
++import { IFHERC20NativeWrapper } from "../../interfaces/IFHERC20NativeWrapper.fsol";
++import { IWETH } from "../../interfaces/IWETH.fsol";
++import { FHERC20Upgradeable } from "../FHERC20Upgradeable.fsol";
++import { FHERC20Core } from "../FHERC20Core.fsol";
++import { FHERC20NativeWrapperCore } from "./FHERC20NativeWrapperCore.fsol";
+ 
+ /**
+  * @dev Proxy-friendly host of {FHERC20NativeWrapperCore}: shields a chain's native token

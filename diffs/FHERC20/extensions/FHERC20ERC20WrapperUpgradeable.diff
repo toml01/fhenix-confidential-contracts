@@ -1,0 +1,22 @@
+# contracts/FHERC20/extensions/FHERC20ERC20WrapperUpgradeable.sol  ->  contracts/FHERC20/extensions/FHERC20ERC20WrapperUpgradeable.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/FHERC20/extensions/FHERC20ERC20WrapperUpgradeable.sol b/contracts/FHERC20/extensions/FHERC20ERC20WrapperUpgradeable.fsol
+index 81bb2c2..a3310c6 100644
+--- a/contracts/FHERC20/extensions/FHERC20ERC20WrapperUpgradeable.sol
++++ b/contracts/FHERC20/extensions/FHERC20ERC20WrapperUpgradeable.fsol
+@@ -5,10 +5,10 @@ import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+ import { IERC1363Receiver } from "@openzeppelin/contracts/interfaces/IERC1363Receiver.sol";
+ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+ import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
+-import { IFHERC20ERC20Wrapper } from "../../interfaces/IFHERC20ERC20Wrapper.sol";
+-import { FHERC20Upgradeable } from "../FHERC20Upgradeable.sol";
+-import { FHERC20Core } from "../FHERC20Core.sol";
+-import { FHERC20ERC20WrapperCore } from "./FHERC20ERC20WrapperCore.sol";
++import { IFHERC20ERC20Wrapper } from "../../interfaces/IFHERC20ERC20Wrapper.fsol";
++import { FHERC20Upgradeable } from "../FHERC20Upgradeable.fsol";
++import { FHERC20Core } from "../FHERC20Core.fsol";
++import { FHERC20ERC20WrapperCore } from "./FHERC20ERC20WrapperCore.fsol";
+ 
+ /**
+  * @dev Proxy-friendly host of {FHERC20ERC20WrapperCore}: shields an `ERC20` token into a

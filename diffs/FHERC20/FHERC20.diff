@@ -1,0 +1,18 @@
+# contracts/FHERC20/FHERC20.sol  ->  contracts/FHERC20/FHERC20.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/FHERC20/FHERC20.sol b/contracts/FHERC20/FHERC20.fsol
+index b6ee905..2632d56 100644
+--- a/contracts/FHERC20/FHERC20.sol
++++ b/contracts/FHERC20/FHERC20.fsol
+@@ -5,8 +5,8 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+ import { Context } from "@openzeppelin/contracts/utils/Context.sol";
+ import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
+ import { ERC165 } from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+-import { IFHERC20, IERC7984 } from "../interfaces/IFHERC20.sol";
+-import { FHERC20Core } from "./FHERC20Core.sol";
++import { IFHERC20, IERC7984 } from "../interfaces/IFHERC20.fsol";
++import { FHERC20Core } from "./FHERC20Core.fsol";
+ 
+ /**
+  * @dev Reference implementation for {IFHERC20} — constructor-based host over {FHERC20Core}.

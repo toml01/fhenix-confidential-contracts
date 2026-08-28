@@ -1,0 +1,16 @@
+# contracts/test/ERC20_Harness.sol  ->  contracts/test/ERC20_Harness.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/test/ERC20_Harness.sol b/contracts/test/ERC20_Harness.fsol
+index 7e8be4b..985bee7 100644
+--- a/contracts/test/ERC20_Harness.sol
++++ b/contracts/test/ERC20_Harness.fsol
+@@ -4,7 +4,7 @@
+ pragma solidity ^0.8.25;
+ 
+ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+-import { IWETH } from "../interfaces/IWETH.sol";
++import { IWETH } from "../interfaces/IWETH.fsol";
+ 
+ contract ERC20_Harness is ERC20 {
+     uint8 _decimals;

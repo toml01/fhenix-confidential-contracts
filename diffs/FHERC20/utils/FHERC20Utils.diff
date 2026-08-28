@@ -1,0 +1,27 @@
+# contracts/FHERC20/utils/FHERC20Utils.sol  ->  contracts/FHERC20/utils/FHERC20Utils.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/FHERC20/utils/FHERC20Utils.sol b/contracts/FHERC20/utils/FHERC20Utils.fsol
+index a4fd9b6..8b75faa 100644
+--- a/contracts/FHERC20/utils/FHERC20Utils.sol
++++ b/contracts/FHERC20/utils/FHERC20Utils.fsol
+@@ -3,8 +3,8 @@ pragma solidity ^0.8.25;
+ 
+ import { FHE, ebool, euint64, sharedEbool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+ 
+-import { IERC7984Receiver } from "../../interfaces/IERC7984Receiver.sol";
+-import { FHERC20InvalidReceiver } from "./FHERC20Errors.sol";
++import { IERC7984Receiver } from "../../interfaces/IERC7984Receiver.fsol";
++import { FHERC20InvalidReceiver } from "./FHERC20Errors.fsol";
+ 
+ /// @dev Library that provides common {FHERC20} utility functions.
+ library FHERC20Utils {
+@@ -52,7 +52,7 @@ library FHERC20Utils {
+             }
+         } else {
+             // No callback to make, so nothing was shared and there is nothing to receive.
+-            return FHE.asEbool(true);
++            return ebool(true);
+         }
+     }
+ }

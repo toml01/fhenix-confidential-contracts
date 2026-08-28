@@ -1,0 +1,43 @@
+# contracts/test/MockFHESafeMath.sol  ->  contracts/test/MockFHESafeMath.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/test/MockFHESafeMath.sol b/contracts/test/MockFHESafeMath.fsol
+index 904b6dd..6790927 100644
+--- a/contracts/test/MockFHESafeMath.sol
++++ b/contracts/test/MockFHESafeMath.fsol
+@@ -2,7 +2,7 @@
+ pragma solidity ^0.8.25;
+ 
+ import { FHE, ebool, euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+-import { FHESafeMath } from "../utils/FHESafeMath.sol";
++import { FHESafeMath } from "../utils/FHESafeMath.fsol";
+ 
+ /**
+  * @notice Thin harness over {FHESafeMath} so its branches can be unit-tested directly, without
+@@ -21,7 +21,7 @@ contract MockFHESafeMath {
+     euint64 private _balance;
+ 
+     function seedBalance(uint64 value) external {
+-        _balance = FHE.asEuint64(value);
++        _balance = euint64(value);
+         FHE.allowThis(_balance);
+         FHE.allowGlobal(_balance);
+     }
+@@ -32,7 +32,7 @@ contract MockFHESafeMath {
+ 
+     /// @dev {FHESafeMath.trySpend} against a trivially-encrypted (always initialized) amount.
+     function trySpend(uint64 amount) external {
+-        (ebool s, euint64 u, euint64 sp) = FHESafeMath.trySpend(_balance, FHE.asEuint64(amount));
++        (ebool s, euint64 u, euint64 sp) = FHESafeMath.trySpend(_balance, euint64(amount));
+         _record(s, u, sp);
+     }
+ 
+@@ -47,7 +47,7 @@ contract MockFHESafeMath {
+     ///      agrees with it on `success`/`updated` for identical inputs. `spent` is left at the zero
+     ///      handle, since `tryDecrease` has no such output.
+     function tryDecrease(uint64 amount) external {
+-        (ebool s, euint64 u) = FHESafeMath.tryDecrease(_balance, FHE.asEuint64(amount));
++        (ebool s, euint64 u) = FHESafeMath.tryDecrease(_balance, euint64(amount));
+         _record(s, u, euint64.wrap(bytes32(0)));
+     }
+ 

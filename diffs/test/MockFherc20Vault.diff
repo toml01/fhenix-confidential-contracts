@@ -1,0 +1,31 @@
+# contracts/test/MockFherc20Vault.sol  ->  contracts/test/MockFherc20Vault.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/test/MockFherc20Vault.sol b/contracts/test/MockFherc20Vault.fsol
+index 0562c91..00e3eb3 100644
+--- a/contracts/test/MockFherc20Vault.sol
++++ b/contracts/test/MockFherc20Vault.fsol
+@@ -2,8 +2,8 @@
+ pragma solidity ^0.8.25;
+ 
+ import { FHE, externalEuint64, euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+-import { FHERC20 } from "../FHERC20/FHERC20.sol";
+-import { FHESafeMath } from "../utils/FHESafeMath.sol";
++import { FHERC20 } from "../FHERC20/FHERC20.fsol";
++import { FHESafeMath } from "../utils/FHESafeMath.fsol";
+ 
+ contract MockFHERC20Vault {
+     FHERC20 public immutable asset;
+@@ -14,10 +14,9 @@ contract MockFHERC20Vault {
+         asset = FHERC20(_asset);
+     }
+ 
+-    function deposit(externalEuint64 inAmount, bytes calldata inputProof) external {
+-        euint64 amount = FHE.asEuint64(inAmount, inputProof);
++    function deposit(in euint64 inAmount) external {
+         euint64 transferred = FHE.receiveEuint64FromCall(
+-            asset.confidentialTransferFrom(msg.sender, address(this), FHE.shareEuint64(amount, address(asset))),
++            asset.confidentialTransferFrom(msg.sender, address(this), FHE.shareEuint64(inAmount, address(asset))),
+             address(asset)
+         );
+         (, euint64 updated) = FHESafeMath.tryAdd(balances[msg.sender], transferred);

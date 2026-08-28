@@ -1,0 +1,22 @@
+# contracts/FHERC20/extensions/FHERC20ERC20Wrapper.sol  ->  contracts/FHERC20/extensions/FHERC20ERC20Wrapper.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/FHERC20/extensions/FHERC20ERC20Wrapper.sol b/contracts/FHERC20/extensions/FHERC20ERC20Wrapper.fsol
+index e6f0d79..2573f60 100644
+--- a/contracts/FHERC20/extensions/FHERC20ERC20Wrapper.sol
++++ b/contracts/FHERC20/extensions/FHERC20ERC20Wrapper.fsol
+@@ -5,10 +5,10 @@ import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+ import { IERC1363Receiver } from "@openzeppelin/contracts/interfaces/IERC1363Receiver.sol";
+ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+ import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
+-import { IFHERC20ERC20Wrapper } from "../../interfaces/IFHERC20ERC20Wrapper.sol";
+-import { FHERC20 } from "../FHERC20.sol";
+-import { FHERC20Core } from "../FHERC20Core.sol";
+-import { FHERC20ERC20WrapperCore } from "./FHERC20ERC20WrapperCore.sol";
++import { IFHERC20ERC20Wrapper } from "../../interfaces/IFHERC20ERC20Wrapper.fsol";
++import { FHERC20 } from "../FHERC20.fsol";
++import { FHERC20Core } from "../FHERC20Core.fsol";
++import { FHERC20ERC20WrapperCore } from "./FHERC20ERC20WrapperCore.fsol";
+ 
+ /**
+  * @dev Constructor-based host of {FHERC20ERC20WrapperCore}: shields an `ERC20` token into a

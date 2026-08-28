@@ -1,267 +1,160 @@
-# Fhenix Confidential Contracts
+# fhenix-confidential-contracts — `.fsol` port
 
-[![NPM Package](https://img.shields.io/npm/v/fhenix-confidential-contracts.svg)](https://www.npmjs.org/package/fhenix-confidential-contracts)
-[![CI Status](https://github.com/FhenixProtocol/fhenix-confidential-contracts/actions/workflows/test.yml/badge.svg)](https://github.com/FhenixProtocol/fhenix-confidential-contracts/actions/workflows/test.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+A fork of [FhenixProtocol/fhenix-confidential-contracts](https://github.com/FhenixProtocol/fhenix-confidential-contracts), ported from
+Solidity + raw `FHE.*` calls to **`.fsol`**, the Solidity dialect compiled by
+[`fhec`](https://github.com/toml01/fhec).
 
-**A privacy-preserving FHERC-20 token standard implementation built on Fhenix Protocol's Fully Homomorphic Encryption (FHE).**
+The port is the vehicle. The goal is to find and fix the weak points of `fhec` by
+building something real with it. **[`FHEC-FINDINGS.md`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/FHEC-FINDINGS.md)
+is the main deliverable** — 14 findings, each with a minimal repro, a workaround,
+and a suggested fix. The ported contracts are the by-product.
 
-> **Warning**: These contracts are in active development and have not been audited. Use at your own risk.
+> Upstream is unaudited and in active development. This fork adds a compiler to
+> that. Do not use it in production.
 
-## Overview
+## Result
 
-This library provides Solidity smart contracts for confidential ERC-20 tokens using FHE. Token balances and transfer amounts remain encrypted on-chain while still supporting standard token operations.
+All 42 contracts are ported. `fhec check` is clean and **254 of 254 upstream
+tests pass** — at every phase boundary, not only at the end. The TypeScript test
+suite was never modified, so it stayed an honest oracle throughout.
 
-### Key Features
+| | before | after |
+|---|---|---|
+| `FHE.*` call sites | 195 | 95 (**−51%**) |
+| `FHE.asEuint64` / `asEbool` | 46 | 5 |
+| `FHE.shareEuint64` | 33 | 12 |
+| `FHE.receiveEuint64Param` | 15 | 6 |
+| `FHE.add/sub/gte/lte/eq` | 17 | 3 |
+| `FHE.select` | 8 | 1 |
+| source lines | 3777 | 3778 |
 
-- **FHERC20** - Base confidential token with encrypted balances
-- **FHERC20Permit** - EIP-712 signature-based operator approval
-- **FHERC20Wrapper** - Wrap standard ERC-20 tokens into confidential tokens
-- **FHERC20UnwrapClaim** - Claim management for unwrapping back to ERC-20
+The win is density, not length. Half the FHE boilerplate is gone and the line
+count is flat.
 
-## Installation
+Two results are worth singling out:
 
-### Hardhat (npm/yarn/pnpm)
+- **The no-op guarantee holds on a real codebase.** Before any rewrite, `fhec
+  build` on the untouched tree produced byte-identical output across all 42
+  files — including inline assembly, ERC-7201 namespaced storage, two external
+  libraries, `using … for`, multiple inheritance, and file-level custom errors.
+- **`ERC20ConfidentialLib` was ported without moving its bytecode.** That library
+  is pinned to solc 0.8.26 / `runs: 1` because it deploys once per chain and is
+  linked by address into every consumer. After the port its compiled bytecode
+  hash is unchanged, so no redeploy and no re-verification is needed.
+
+## Ported contracts
+
+Each contract links to its own diff against upstream
+[`5138cb8`](https://github.com/FhenixProtocol/fhenix-confidential-contracts/commit/5138cb8) — the original `contracts/X.sol` against the
+ported `contracts/X.fsol`. [Full compare](https://github.com/toml01/fhenix-confidential-contracts/compare/5138cb8...fsol-port).
+
+Read the **diff** rows first: those 15 files carry the real port. **imports only**
+means the single change is the `.sol` → `.fsol` import extension, which `fhec`
+rewrites back on output. **—** means the file was renamed and nothing else.
+
+**Transpiled output** says whether the Solidity `fhec` generates is identical to
+upstream, ignoring comments. `identical` means the port is provably
+behaviour-preserving for that file — 34 of 42 are. **changed** means the `in` /
+`in shared` / `shared(...)` sugar altered the emitted signature: it renames the
+ABI parameter to `<name>_input` / `<name>_shared`, and on `FHERC20Core` it also
+moved eight entrypoints from `public` to `external`, because `in shared` is
+`external`-only. Both are recorded as findings, not accepted as correct.
+
+
+### FHERC20
+
+| Contract | Diff vs upstream | `FHE.*` calls | Transpiled output |
+|---|---|---|---|
+| [`FHERC20Core`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/FHERC20Core.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/FHERC20Core.diff)** | 37 → 18 | **changed** |
+| [`FHERC20ERC20WrapperCore`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/extensions/FHERC20ERC20WrapperCore.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/extensions/FHERC20ERC20WrapperCore.diff)** | 10 → 3 | **changed** |
+| [`FHERC20NativeWrapperCore`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/extensions/FHERC20NativeWrapperCore.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/extensions/FHERC20NativeWrapperCore.diff)** | 11 → 3 | **changed** |
+| [`FHERC20Utils`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/utils/FHERC20Utils.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/utils/FHERC20Utils.diff)** | 3 → 2 | identical |
+| [`FHESafeMath`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/utils/FHESafeMath.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/utils/FHESafeMath.diff)** | 43 → 10 | identical |
+| [`FHERC20`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/FHERC20.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/FHERC20.diff) | — | identical |
+| [`FHERC20Upgradeable`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/FHERC20Upgradeable.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/FHERC20Upgradeable.diff) | — | identical |
+| [`FHERC20ERC20Wrapper`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/extensions/FHERC20ERC20Wrapper.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/extensions/FHERC20ERC20Wrapper.diff) | — | identical |
+| [`FHERC20ERC20WrapperUpgradeable`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/extensions/FHERC20ERC20WrapperUpgradeable.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/extensions/FHERC20ERC20WrapperUpgradeable.diff) | — | identical |
+| [`FHERC20NativeWrapper`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/extensions/FHERC20NativeWrapper.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/extensions/FHERC20NativeWrapper.diff) | — | identical |
+| [`FHERC20NativeWrapperUpgradeable`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/extensions/FHERC20NativeWrapperUpgradeable.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/extensions/FHERC20NativeWrapperUpgradeable.diff) | — | identical |
+| [`FHERC20Errors`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/utils/FHERC20Errors.fsol) | — | — | identical |
+| [`FHERC20WrapperClaims`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/utils/FHERC20WrapperClaims.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/utils/FHERC20WrapperClaims.diff) | — | identical |
+
+### ERC20Confidential
+
+| Contract | Diff vs upstream | `FHE.*` calls | Transpiled output |
+|---|---|---|---|
+| [`ERC20ConfidentialCoreUpgradeable`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.diff)** | 3 → 0 | **changed** |
+| [`ERC20ConfidentialLib`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20ConfidentialLib.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/ERC20Confidential/ERC20ConfidentialLib.diff)** | 45 → 35 | identical |
+| [`ERC20Confidential`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20Confidential.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/ERC20Confidential/ERC20Confidential.diff) | — | identical |
+| [`ERC20ConfidentialIndicator`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20ConfidentialIndicator.fsol) | — | — | identical |
+| [`ERC20ConfidentialUpgradeable`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20ConfidentialUpgradeable.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/ERC20Confidential/ERC20ConfidentialUpgradeable.diff) | — | identical |
+
+### Interfaces
+
+| Contract | Diff vs upstream | `FHE.*` calls | Transpiled output |
+|---|---|---|---|
+| [`IERC20Confidential`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/interfaces/IERC20Confidential.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/interfaces/IERC20Confidential.diff) | — | identical |
+| [`IERC20ConfidentialCore`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/interfaces/IERC20ConfidentialCore.fsol) | — | — | identical |
+| [`IERC7984`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/interfaces/IERC7984.fsol) | — | — | identical |
+| [`IERC7984Receiver`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/interfaces/IERC7984Receiver.fsol) | — | 4 → 4 | identical |
+| [`IFHERC20`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/interfaces/IFHERC20.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/interfaces/IFHERC20.diff) | — | identical |
+| [`IFHERC20ERC20Wrapper`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/interfaces/IFHERC20ERC20Wrapper.fsol) | — | — | identical |
+| [`IFHERC20NativeWrapper`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/interfaces/IFHERC20NativeWrapper.fsol) | — | — | identical |
+| [`IWETH`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/interfaces/IWETH.fsol) | — | — | identical |
+
+### Test contracts
+
+| Contract | Diff vs upstream | `FHE.*` calls | Transpiled output |
+|---|---|---|---|
+| [`FHERC20Upgradeable_Harness`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/FHERC20Upgradeable_Harness.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/FHERC20Upgradeable_Harness.diff)** | 2 → 0 | identical |
+| [`FHERC20_Harness`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/FHERC20_Harness.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/FHERC20_Harness.diff)** | 2 → 0 | identical |
+| [`MaliciousReentrantReceiver`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/MaliciousReentrantReceiver.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/MaliciousReentrantReceiver.diff)** | 4 → 1 | **changed** |
+| [`MaliciousUnshieldReceiver`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/MaliciousUnshieldReceiver.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/MaliciousUnshieldReceiver.diff)** | 4 → 1 | **changed** |
+| [`MockFHERC20Receiver`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/MockFHERC20Receiver.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/MockFHERC20Receiver.diff)** | 2 → 0 | identical |
+| [`MockFHESafeMath`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/MockFHESafeMath.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/MockFHESafeMath.diff)** | 13 → 10 | identical |
+| [`MockFherc20Vault`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/MockFherc20Vault.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/MockFherc20Vault.diff)** | 3 → 2 | **changed** |
+| [`SharedAmountReceiver`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/SharedAmountReceiver.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/SharedAmountReceiver.diff)** | 5 → 2 | **changed** |
+| [`ConfidentialHarness`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/ConfidentialHarness.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/ConfidentialHarness.diff) | — | identical |
+| [`ERC1967Proxy`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/ERC1967Proxy.fsol) | — | — | identical |
+| [`ERC20ConfidentialUpgradeable_Harness`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/ERC20ConfidentialUpgradeable_Harness.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/ERC20ConfidentialUpgradeable_Harness.diff) | — | identical |
+| [`ERC20_Harness`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/ERC20_Harness.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/ERC20_Harness.diff) | — | identical |
+| [`FHERC20ERC20Wrapper_Harness`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/FHERC20ERC20Wrapper_Harness.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/FHERC20ERC20Wrapper_Harness.diff) | — | identical |
+| [`FHERC20NativeWrapper_Harness`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/FHERC20NativeWrapper_Harness.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/FHERC20NativeWrapper_Harness.diff) | — | identical |
+| [`MockERC20Confidential`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/MockERC20Confidential.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/test/MockERC20Confidential.diff) | — | identical |
+| [`MockSharedAmountCaller`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/test/MockSharedAmountCaller.fsol) | — | 4 → 4 | identical |
+
+## How it builds
+
+`fhec` transpiles `contracts/*.fsol` into `generated/*.sol`, and Hardhat compiles
+`generated/`. Both trees are committed, so the generated Solidity is reviewable
+as a diff.
 
 ```bash
-npm install fhenix-confidential-contracts
-# or
-yarn add fhenix-confidential-contracts
-# or
-pnpm add fhenix-confidential-contracts
-```
-
-### Foundry
-
-```bash
-forge install FhenixProtocol/fhenix-confidential-contracts
-```
-
-### Linking `ERC20ConfidentialLib` (required)
-
-The confidential FHE orchestration lives in `ERC20ConfidentialLib`, an **external library** that is
-`delegatecall`ed by the token. This is what keeps confidential tokens under the EIP-170 24KB
-bytecode limit: the heavy logic is deployed once per chain instead of being embedded in every token.
-
-Every contract that inherits `ERC20Confidential`, `ERC20ConfidentialUpgradeable`,
-`ERC20ConfidentialCoreUpgradeable`, or either wrapper must be linked against it at deploy time. The
-address is baked into the token's bytecode and **cannot be changed afterwards**.
-
-```ts
-const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
-
-// 1. Deploy the library once per chain (see deploy/00_deploy_confidential_lib.ts, which also
-//    forces explorer verification and records the address under deployments/<network>/).
-const lib = await ethers.deployContract(LIB_FQN);
-await lib.waitForDeployment();
-
-// 2. Link it into every token factory.
-const factory = await ethers.getContractFactory("MyConfidentialToken", {
-  libraries: { [LIB_FQN]: await lib.getAddress() },
-});
-
-// 3. Upgradeable tokens additionally need the OZ upgrades plugin to allow linked libraries.
-await upgrades.deployProxy(factory, [...args], { unsafeAllowLinkedLibraries: true });
-```
-
-Forgetting step 2 fails at deploy time with an unresolved-link error, not silently.
-
-## Usage
-
-### Basic FHERC20 Token
-
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
-
-import { FHERC20 } from "fhenix-confidential-contracts/contracts/FHERC20.sol";
-
-contract MyConfidentialToken is FHERC20 {
-    constructor() FHERC20("My Confidential Token", "eMCT", 18) {
-        // Mint initial supply to deployer
-        _mint(msg.sender, 1000000 * 10**18);
-    }
-}
-```
-
-### FHERC20 with Permit
-
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
-
-import { FHERC20 } from "fhenix-confidential-contracts/contracts/FHERC20.sol";
-import { FHERC20Permit } from "fhenix-confidential-contracts/contracts/FHERC20Permit.sol";
-
-contract MyPermitToken is FHERC20, FHERC20Permit {
-    constructor()
-        FHERC20("My Permit Token", "eMPT", 18)
-        FHERC20Permit("My Permit Token")
-    {
-        _mint(msg.sender, 1000000 * 10**18);
-    }
-}
-```
-
-### Wrapping Existing ERC-20 Tokens
-
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
-
-import { FHERC20Wrapper } from "fhenix-confidential-contracts/contracts/FHERC20Wrapper.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
-contract MyWrappedToken is FHERC20Wrapper {
-    constructor(IERC20 underlyingToken)
-        FHERC20Wrapper(underlyingToken, "")
-    {}
-}
-
-// Usage:
-// 1. Deploy with existing ERC-20 address
-// 2. Approve the wrapper contract to spend your ERC-20 tokens
-// 3. Call wrap(recipient, amount) to mint confidential tokens
-// 4. Call unwrap(recipient, encryptedAmount) to initiate unwrapping
-// 5. Call claimUnwrapped(ctHash) after decryption completes
-```
-
-## Contract Architecture
-
-Behavior lives in shared `*Core` mixins; the concrete contracts are thin hosts that only supply
-setup (constructor vs. initializer) and ERC-165 answers. The FHE orchestration sits one level
-deeper still, in the external linked `ERC20ConfidentialLib`.
-
-```
-ERC20ConfidentialLib (external, linked, delegatecall'd - deploy once per chain)
-  ▲ used by every core below
-
-FHERC20Core (encrypted balances, operators, indicator layer, disclosure)
-├── FHERC20                                  (constructor host)
-├── FHERC20Upgradeable                        (proxy host)
-├── FHERC20ERC20WrapperCore                   (wrap/shield/unshield/claim)
-│   ├── FHERC20ERC20Wrapper
-│   └── FHERC20ERC20WrapperUpgradeable
-└── FHERC20NativeWrapperCore                  (native/WETH shield/unshield/claim)
-    ├── FHERC20NativeWrapper
-    └── FHERC20NativeWrapperUpgradeable
-
-ERC20ConfidentialCoreUpgradeable (dual-ledger confidential layer over a host's public ERC-20;
-│   reaches the ledger through _ledgerMint / _ledgerTransfer / _ledgerBalanceOf, and gates
-│   account-initiated moves through _beforeConfidentialMove)
-├── ERC20Confidential                         (constructor host, OZ ERC20 ledger)
-└── ERC20ConfidentialUpgradeable              (proxy host, OZ ERC20Upgradeable ledger)
-
-Interfaces:
-├── IFHERC20 / IERC7984 / IERC7984Receiver
-├── IERC20Confidential
-├── IERC20ConfidentialCore    (confidential-only; no OZ IERC20/IERC165, so it composes
-│                              with hosts that bring their own stack)
-├── IFHERC20ERC20Wrapper / IFHERC20NativeWrapper
-└── IWETH
-
-Utilities:
-├── FHERC20Utils
-├── FHERC20Errors
-├── FHERC20WrapperClaims      (claim bookkeeping over the library's claim store)
-├── ERC20ConfidentialIndicator
-└── FHESafeMath
-```
-
-Unshield claims are keyed by a unique per-claimant id (`keccak256(to, nonce++, handle)`), not by
-the ciphertext handle: CoFHE handles are content-addressed, so two unshields with an identical
-burned-amount lineage produce the same handle, and handle-keyed claims could overwrite each other.
-Read claim ids from `getClaim` / `getUserClaims`; the handle is retained as `Claim.ctHash` to bind
-the decryption proof.
-
-## Key Concepts
-
-### Indicated Balances
-
-FHERC20 tokens use an "indicator" system for backwards compatibility with existing ERC-20 infrastructure (wallets, block explorers). The `balanceOf` function returns a value between `0.0000` and `0.9999` that indicates balance changes without revealing actual amounts.
-
-This allows wallets to detect when balances change while keeping the actual amounts private.
-
-### Operators vs Allowances
-
-Traditional ERC-20 allowances are replaced with time-limited **operators** to prevent encrypted balance leakage. Unlike allowances where you approve a specific amount, operators can transfer any amount on behalf of a holder until their permission expires.
-
-```solidity
-// Set an operator (replaces approve)
-token.setOperator(spender, deadline);
-
-// Check if address is an operator
-bool isOp = token.isOperator(holder, spender);
-
-// Transfer as operator (replaces transferFrom with allowance)
-token.confidentialTransferFrom(from, to, encryptedAmount);
-```
-
-### Confidential Transfers
-
-```solidity
-// Direct encrypted transfer
-token.confidentialTransfer(to, encryptedAmount);
-
-// Operator-initiated transfer
-token.confidentialTransferFrom(from, to, encryptedAmount);
-
-// Transfer with callback to receiving contract
-token.confidentialTransferAndCall(to, encryptedAmount, data);
-```
-
-## Security Considerations
-
-### FHE-Specific Security
-
-1. **Balance Indicators Are Public**: The indicator values (0.0000-0.9999) reveal transfer activity but not amounts
-2. **Operator Model**: Operators have full transfer authority during their approval period - use short deadlines
-3. **Decryption Delays**: Unwrapping operations require waiting for FHE decryption to complete
-
-### Smart Contract Security
-
-1. **Reentrancy**: `confidentialTransferAndCall` includes callback functionality - receiving contracts should follow checks-effects-interactions
-2. **Integer Operations**: FHE operations have different overflow behavior than standard Solidity
-
-### Audit Status
-
-> **Warning**: These contracts have not been audited. A security audit is planned before v1.0.0 release.
-
-### Reporting Vulnerabilities
-
-Please report security vulnerabilities through our [Security Policy](./SECURITY.md).
-
-## Dependencies
-
-- [@openzeppelin/contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) ^5.2.0
-- [@fhenixprotocol/cofhe-contracts](https://github.com/FhenixProtocol/cofhe-contracts) 0.0.13
-
-## Development
-
-```bash
-# Install dependencies
 pnpm install
-
-# Compile contracts
-pnpm compile
-
-# Run tests
-pnpm test
-
-# Run tests with gas reporting
-pnpm gas
-
-# Format code
-pnpm format
-
-# Lint
-pnpm lint
+pnpm compile        # runs `fhec build`, then solc
+pnpm test           # 254 passing
 ```
 
-## Contributing
+`@fhec/hardhat-plugin` is not published to npm yet, so this repo links it from a
+local `fhec` checkout and points at a locally built binary. See
+[`FHEC-FINDINGS.md`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/FHEC-FINDINGS.md) →
+*"cannot be installed outside the fhec monorepo"* for the two workarounds, and
+[`fhec.toml`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/fhec.toml) for the project configuration.
 
-Contributions are welcome! Please read our [Contributing Guide](./CONTRIBUTING.md) before submitting a Pull Request.
+`acl.mode` is set to `suggest`, not the default `insert`. The reason is in
+`fhec.toml` and in finding 1: on an account-keyed balance the default rule grants
+read access to `msg.sender`, who in an operator transfer is a third party.
 
-## License
+## Documents
 
-Released under the [MIT License](./LICENSE).
+- [`FHEC-FINDINGS.md`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/FHEC-FINDINGS.md) — the findings, ranked. Start here.
+- [`PORT-PLAN.md`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/PORT-PLAN.md) — the ten-phase plan and where it had to bend.
+- [`AGENTS.md`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/AGENTS.md) — repo map, build commands, and the landmines.
+- [`diffs/`](https://github.com/toml01/fhenix-confidential-contracts/tree/fsol-port/diffs) — every per-contract diff, as files.
+
+## Upstream
+
+Everything in `contracts/` derives from
+[FhenixProtocol/fhenix-confidential-contracts](https://github.com/FhenixProtocol/fhenix-confidential-contracts) at commit
+[`5138cb8`](https://github.com/FhenixProtocol/fhenix-confidential-contracts/commit/5138cb8). MIT licensed, unchanged. See
+[LICENSE](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/LICENSE).

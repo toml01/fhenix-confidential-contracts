@@ -1,0 +1,108 @@
+# contracts/ERC20Confidential/ERC20ConfidentialLib.sol  ->  contracts/ERC20Confidential/ERC20ConfidentialLib.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/ERC20Confidential/ERC20ConfidentialLib.sol b/contracts/ERC20Confidential/ERC20ConfidentialLib.fsol
+index 5ddc690..321d624 100644
+--- a/contracts/ERC20Confidential/ERC20ConfidentialLib.sol
++++ b/contracts/ERC20Confidential/ERC20ConfidentialLib.fsol
+@@ -4,9 +4,9 @@ pragma solidity ^0.8.25;
+ import { FHE, euint64, externalEuint64, sharedEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+-import { FHESafeMath } from "../utils/FHESafeMath.sol";
+-import { FHERC20Utils } from "../FHERC20/utils/FHERC20Utils.sol";
+-import { ERC20ConfidentialIndicator } from "./ERC20ConfidentialIndicator.sol";
++import { FHESafeMath } from "../utils/FHESafeMath.fsol";
++import { FHERC20Utils } from "../FHERC20/utils/FHERC20Utils.fsol";
++import { ERC20ConfidentialIndicator } from "./ERC20ConfidentialIndicator.fsol";
+ 
+ /// @dev Self-only bridge the host token exposes so this delegatecall'd library can
+ /// reach the host's ledger hooks (`_ledgerTransfer` / `_ledgerMint`) for the
+@@ -220,7 +220,7 @@ library ERC20ConfidentialLib {
+         uint64 amountConfidential = SafeCast.toUint64(amountToShield / rate);
+ 
+         IConfidentialLedger(address(this)).__ledger(to, CONFIDENTIAL_POOL, amountToShield);
+-        update(address(0), to, FHE.asEuint64(amountConfidential));
++        update(address(0), to, euint64(amountConfidential));
+         syncConfidentialTotalSupply();
+ 
+         emit TokensShielded(to, amountToShield);
+@@ -284,7 +284,7 @@ library ERC20ConfidentialLib {
+     function confidentialMint(address to, uint64 amount) public {
+         ERC20ConfidentialStorage storage $ = _getERC20ConfidentialStorage();
+         IConfidentialLedger(address(this)).__ledger(address(0), CONFIDENTIAL_POOL, uint256(amount) * $._conversionRate);
+-        update(address(0), to, FHE.asEuint64(amount));
++        update(address(0), to, euint64(amount));
+         syncConfidentialTotalSupply();
+     }
+ 
+@@ -299,7 +299,7 @@ library ERC20ConfidentialLib {
+     /// `isAllowed` = transient ∨ persisted ∨ global).
+     function syncConfidentialTotalSupply() public {
+         ERC20ConfidentialStorage storage $ = _getERC20ConfidentialStorage();
+-        euint64 supply = FHE.asEuint64(confidentialTotalSupplyPlaintext());
++        euint64 supply = euint64(confidentialTotalSupplyPlaintext());
+         FHE.allowPublic(supply);
+         $._confidentialTotalSupply = supply;
+     }
+@@ -336,9 +336,9 @@ library ERC20ConfidentialLib {
+         address to,
+         externalEuint64 inValue,
+         bytes memory inputProof
+-    ) public returns (sharedEuint64) {
++    ) public returns (shared(msg.sender) euint64) {
+         euint64 transferred = _move(msg.sender, to, FHE.asEuint64(inValue, inputProof));
+-        return FHE.shareEuint64(transferred, msg.sender);
++        return transferred;
+     }
+ 
+     function confTransferFrom(
+@@ -356,10 +356,10 @@ library ERC20ConfidentialLib {
+         address to,
+         externalEuint64 inValue,
+         bytes memory inputProof
+-    ) public returns (sharedEuint64) {
++    ) public returns (shared(msg.sender) euint64) {
+         if (!_isOperator(from, msg.sender)) revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
+         euint64 transferred = _move(from, to, FHE.asEuint64(inValue, inputProof));
+-        return FHE.shareEuint64(transferred, msg.sender);
++        return transferred;
+     }
+ 
+     function confTransferAndCall(
+@@ -376,9 +376,9 @@ library ERC20ConfidentialLib {
+         externalEuint64 inAmount,
+         bytes memory inputProof,
+         bytes calldata data
+-    ) public returns (sharedEuint64) {
++    ) public returns (shared(msg.sender) euint64) {
+         euint64 transferred = _moveAndCall(msg.sender, to, FHE.asEuint64(inAmount, inputProof), data);
+-        return FHE.shareEuint64(transferred, msg.sender);
++        return transferred;
+     }
+ 
+     function confTransferFromAndCall(
+@@ -398,10 +398,10 @@ library ERC20ConfidentialLib {
+         externalEuint64 inAmount,
+         bytes memory inputProof,
+         bytes calldata data
+-    ) public returns (sharedEuint64) {
++    ) public returns (shared(msg.sender) euint64) {
+         if (!_isOperator(from, msg.sender)) revert ERC20ConfidentialUnauthorizedSpender(from, msg.sender);
+         euint64 transferred = _moveAndCall(from, to, FHE.asEuint64(inAmount, inputProof), data);
+-        return FHE.shareEuint64(transferred, msg.sender);
++        return transferred;
+     }
+ 
+     function isOperator(address holder, address spender) public view returns (bool) {
+@@ -426,8 +426,8 @@ library ERC20ConfidentialLib {
+     ) internal returns (euint64 transferred) {
+         euint64 sent = _move(from, to, amount);
+         ebool success = FHERC20Utils.checkOnTransferReceived(msg.sender, from, to, sent, data);
+-        euint64 refund = update(to, from, FHE.select(success, FHE.asEuint64(0), sent));
+-        transferred = FHE.sub(sent, refund);
++        euint64 refund = update(to, from, success ? euint64(0) : sent);
++        transferred = sent - refund;
+     }
+ 
+     function _isOperator(address holder, address spender) internal view returns (bool) {

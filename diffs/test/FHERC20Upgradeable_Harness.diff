@@ -1,0 +1,29 @@
+# contracts/test/FHERC20Upgradeable_Harness.sol  ->  contracts/test/FHERC20Upgradeable_Harness.fsol
+# upstream 5138cb8 .. ported 86f1b7c
+
+diff --git a/contracts/test/FHERC20Upgradeable_Harness.sol b/contracts/test/FHERC20Upgradeable_Harness.fsol
+index 596154e..3e5facf 100644
+--- a/contracts/test/FHERC20Upgradeable_Harness.sol
++++ b/contracts/test/FHERC20Upgradeable_Harness.fsol
+@@ -2,7 +2,7 @@
+ pragma solidity ^0.8.25;
+ 
+ import { FHE, euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+-import { FHERC20Upgradeable } from "../FHERC20/FHERC20Upgradeable.sol";
++import { FHERC20Upgradeable } from "../FHERC20/FHERC20Upgradeable.fsol";
+ 
+ contract FHERC20Upgradeable_Harness is FHERC20Upgradeable {
+     /// @custom:oz-upgrades-unsafe-allow constructor
+@@ -20,10 +20,10 @@ contract FHERC20Upgradeable_Harness is FHERC20Upgradeable {
+     }
+ 
+     function mint(address account, uint64 value) public {
+-        _mint(account, FHE.asEuint64(value));
++        _mint(account, euint64(value));
+     }
+ 
+     function burn(address account, uint64 value) public {
+-        _burn(account, FHE.asEuint64(value));
++        _burn(account, euint64(value));
+     }
+ }
