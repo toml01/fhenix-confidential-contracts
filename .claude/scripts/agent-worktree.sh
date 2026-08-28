@@ -41,9 +41,13 @@ case "$cmd" in
     rc=0
     case "$provider" in
       codex)
-        # --full-auto keeps writes inside -C. Grok has no equivalent flag: for grok
-        # the only limit is the "work only inside this directory" line in the prompt.
-        codex exec -C "$wt" --full-auto \
+        # 0.149.0 dropped --full-auto. workspace-write keeps writes inside -C, and
+        # network_access lets the test suite fetch deps. --approve-for-me is the other
+        # successor, but it conflicts with --sandbox and can approve escalation outside
+        # the worktree. Grok has no equivalent flag: for grok the only limit is the
+        # "work only inside this directory" line in the prompt.
+        codex exec -C "$wt" --sandbox workspace-write \
+          -c sandbox_workspace_write.network_access=true \
           -m "$model" -c model_reasoning_effort="$effort" \
           --output-last-message "$wt/.agent-result.md" - < "$pf" >/dev/null 2>"$err" || rc=$?
         ;;

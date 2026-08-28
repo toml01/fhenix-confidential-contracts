@@ -99,10 +99,7 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper, 
     function shield(address to, uint256 amount) public virtual override returns (sharedEuint64) {
         SafeERC20.safeTransferFrom(IERC20(underlying()), msg.sender, address(this), amount - (amount % rate()));
 
-        // Bound to a local because a `shared(...)` return cannot take a call expression whose
-        // declaring contract inherits from outside the unit (FHE2012). See FHEC-FINDINGS.md.
-        euint64 shieldedAmountSent = _mint(to, FHE.asEuint64(SafeCast.toUint64(amount / rate())));
-        return FHE.shareEuint64(shieldedAmountSent, msg.sender);
+        return FHE.shareEuint64(_mint(to, FHE.asEuint64(SafeCast.toUint64(amount / rate()))), msg.sender);
     }
 
     /**
@@ -113,8 +110,7 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper, 
      * from {getClaim}/{getUserClaims}, NOT from the burned handle.
      */
     function unshield(address from, address to, uint64 amount) public virtual nonReentrant returns (sharedEuint64) {
-        euint64 burned = _unshield(from, to, FHE.asEuint64(amount)); // FHE2012, see shield() above
-        return FHE.shareEuint64(burned, msg.sender);
+        return FHE.shareEuint64(_unshield(from, to, FHE.asEuint64(amount)), msg.sender);
     }
 
     /**
@@ -130,8 +126,7 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper, 
         sharedEuint64 amount_shared
     ) external virtual nonReentrant returns (sharedEuint64) {
         euint64 amount = FHE.receiveEuint64Param(amount_shared);
-        euint64 burned = _unshield(from, to, amount); // FHE2012, see shield() above
-        return FHE.shareEuint64(burned, msg.sender);
+        return FHE.shareEuint64(_unshield(from, to, amount), msg.sender);
     }
 
     /**

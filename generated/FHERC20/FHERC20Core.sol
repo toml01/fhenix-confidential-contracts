@@ -376,9 +376,6 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
             FHE.allowThis(ptr);
             $._totalSupply = ptr;
             $._indicatedTotalSupply = _incrementIndicator($._indicatedTotalSupply);
-            // Kept as an explicit call: `success` arrives by tuple destructuring into a
-            // pre-declared local, which fhec does not count as initialized (FHE2007 false
-            // positive). See FHEC-FINDINGS.md, "tuple destructuring ... not initialization".
             transferred = FHE.select(success, amount, FHE.asEuint64(0));
         } else {
             euint64 fromBalance = $._balances[from];
@@ -393,12 +390,12 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
         }
 
         if (to == address(0)) {
-            ptr = FHE.sub($._totalSupply, transferred); // FHE2007 false positive, see above
+            ptr = FHE.sub($._totalSupply, transferred);
             FHE.allowThis(ptr);
             $._totalSupply = ptr;
             $._indicatedTotalSupply = _decrementIndicator($._indicatedTotalSupply);
         } else {
-            ptr = FHE.add($._balances[to], transferred); // FHE2007 false positive, see above
+            ptr = FHE.add($._balances[to], transferred);
             FHE.allowThis(ptr);
             FHE.allow(ptr, to);
             $._balances[to] = ptr;

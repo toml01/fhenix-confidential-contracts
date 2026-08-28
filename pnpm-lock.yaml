@@ -1533,6 +1533,7 @@ packages:
 
   fhec@file:../fhec/packages/fhec:
     resolution: {directory: ../fhec/packages/fhec, type: directory}
+    engines: {node: '>=22'}
     hasBin: true
 
   file-entry-cache@6.0.1:

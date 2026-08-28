@@ -186,18 +186,12 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
 
     function unshield(uint64 amount) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(msg.sender, address(0));
-        // Bound to a local: this contract inherits `ReentrancyGuardTransient`, which is outside
-        // the compilation unit, so every call in it types as Unknown (FHE2012).
-        // See FHEC-FINDINGS.md, "any out-of-unit base poisons call typing".
-        euint64 burned = ERC20ConfidentialLib.unshield(FHE.asEuint64(amount));
-        return FHE.shareEuint64(burned, msg.sender);
+        return FHE.shareEuint64(ERC20ConfidentialLib.unshield(FHE.asEuint64(amount)), msg.sender);
     }
 
     function unshield(sharedEuint64 sharedAmount) public virtual nonReentrant returns (sharedEuint64) {
         _beforeConfidentialMove(msg.sender, address(0));
-        // Same FHE2012 workaround as unshield(uint64) above.
-        euint64 burned = ERC20ConfidentialLib.unshieldChecked(sharedAmount);
-        return FHE.shareEuint64(burned, msg.sender);
+        return FHE.shareEuint64(ERC20ConfidentialLib.unshieldChecked(sharedAmount), msg.sender);
     }
 
     // No reentrancy guard: the only external call is the self-call to `__ledger`
