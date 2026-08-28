@@ -423,3 +423,70 @@ and it should stay true.
 - **Suggested fix:** keep the author's parameter name in the emitted signature
   and use the internal `_shared` name only for the generated local. The same
   applies to `in` / `_input`.
+
+### FHE2007 false positive: tuple destructuring into a pre-declared variable is not counted as initialization
+
+- **Where:** `contracts/FHERC20/FHERC20Core.fsol:371, 385, 390`
+- **Severity:** blocker for those sites — it forced three expressions back to
+  raw `FHE.*` calls
+- **Expected:** `(ok, v) = pair(a);` initializes `ok` and `v`, exactly as
+  Solidity's own definite-assignment rules say.
+- **Got:** three FHE2007 errors on code whose plain-Solidity form is accepted:
+  ```
+  error[FHE2007]: possibly uninitialized encrypted variable used as a `select`
+  condition; CoFHE silently substitutes a default ciphertext for uninitialized
+  handles
+    --> FHERC20/FHERC20Core.fsol:371:27
+      |
+  371 |             transferred = success ? amount : euint64(0);
+      |                           ^^^^^^^
+  ```
+  `success` is assigned on the line above by
+  `(success, ptr) = FHESafeMath.tryIncrease($._totalSupply, amount);`.
+
+- **Minimal repro** — case A fails, cases B and C are clean:
+  ```solidity
+  function pair(euint64 a) internal returns (ebool, euint64) {
+      return (FHE.asEbool(true), a);
+  }
+
+  // A: assign into pre-declared locals -> FHE2007 on BOTH `ok` and `v`
+  function tupleAssign(euint64 a) external returns (euint64 r) {
+      ebool ok;
+      euint64 v;
+      (ok, v) = pair(a);
+      r = ok ? v : euint64(0);
+  }
+
+  // B: declare inside the tuple -> clean
+  function tupleDecl(euint64 a) external returns (euint64 r) {
+      (ebool ok, euint64 v) = pair(a);
+      r = ok ? v : euint64(0);
+  }
+
+  // C: plain assignment -> clean
+  function plain(euint64 a) external returns (euint64 r) {
+      ebool ok = FHE.asEbool(true);
+      r = ok ? a : euint64(0);
+  }
+  ```
+  So the analysis handles `DeclMulti` but not assignment-to-existing through a
+  tuple.
+
+- **Why it bites hard here:** case A is not a style choice. It is forced whenever
+  the destination must outlive the tuple — a named return, or a local declared
+  before a branch. In `_update`, `ptr` is used in both arms of a plaintext
+  `if/else` and `transferred` is a named return, so neither can be declared
+  inside the tuple. Multi-return helpers are the whole point of `FHESafeMath`,
+  so this pattern is everywhere in this codebase.
+
+- **Extra sting:** the identical code in plain Solidity passes. `FHE.select(...)`
+  written by hand is not "a lowered FHE operation", so the check never runs on
+  it. Adopting the dialect turns working code into an error, which is precisely
+  the adoption tax the no-op guarantee is meant to avoid.
+
+- **Workaround:** revert those three expressions to `FHE.select` / `FHE.sub` /
+  `FHE.add`. Applied, with an in-source comment at each site.
+- **Suggested fix:** treat a tuple assignment as initializing every named
+  component of its left-hand side, `(, x, y) = f()` included. Case B already
+  proves the machinery exists; it just is not wired to the assignment form.

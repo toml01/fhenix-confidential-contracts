@@ -193,93 +193,95 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
     /// @inheritdoc IERC7984
     function confidentialTransfer(
         address to,
-        externalEuint64 encryptedAmount,
-        bytes calldata inputProof
-    ) public virtual nonReentrant returns (sharedEuint64) {
-        euint64 transferred = _transfer(msg.sender, to, FHE.asEuint64(encryptedAmount, inputProof));
-        return FHE.shareEuint64(transferred, msg.sender);
+        externalEuint64 amount_input
+    , bytes memory inputProof) external virtual nonReentrant returns (sharedEuint64) {
+        euint64 amount = FHE.asEuint64(amount_input, inputProof);
+        return FHE.shareEuint64(_transfer(msg.sender, to, amount), msg.sender);
     }
 
     /// @inheritdoc IERC7984
     function confidentialTransfer(
         address to,
-        sharedEuint64 sharedAmount
-    ) public virtual nonReentrant returns (sharedEuint64) {
-        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
-        euint64 transferred = _transfer(msg.sender, to, amount);
-        return FHE.shareEuint64(transferred, msg.sender);
+        sharedEuint64 amount_shared
+    ) external virtual nonReentrant returns (sharedEuint64) {
+        euint64 amount = FHE.receiveEuint64Param(amount_shared);
+        return FHE.shareEuint64(_transfer(msg.sender, to, amount), msg.sender);
     }
 
     /// @inheritdoc IERC7984
     function confidentialTransferFrom(
         address from,
         address to,
-        externalEuint64 encryptedAmount,
-        bytes calldata inputProof
-    ) public virtual nonReentrant returns (sharedEuint64) {
-        if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
-        euint64 transferred = _transfer(from, to, FHE.asEuint64(encryptedAmount, inputProof));
-        return FHE.shareEuint64(transferred, msg.sender);
+        externalEuint64 amount_input
+    , bytes memory inputProof) external virtual nonReentrant returns (sharedEuint64) {
+        {
+            if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
+        }
+        euint64 amount = FHE.asEuint64(amount_input, inputProof);
+        return FHE.shareEuint64(_transfer(from, to, amount), msg.sender);
     }
 
     /// @inheritdoc IERC7984
     function confidentialTransferFrom(
         address from,
         address to,
-        sharedEuint64 sharedAmount
-    ) public virtual nonReentrant returns (sharedEuint64) {
-        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
-        if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
-        euint64 transferred = _transfer(from, to, amount);
-        return FHE.shareEuint64(transferred, msg.sender);
+        sharedEuint64 amount_shared
+    ) external virtual nonReentrant returns (sharedEuint64) {
+        {
+            if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
+        }
+        euint64 amount = FHE.receiveEuint64Param(amount_shared);
+        return FHE.shareEuint64(_transfer(from, to, amount), msg.sender);
     }
 
     /// @inheritdoc IERC7984
     function confidentialTransferAndCall(
         address to,
-        externalEuint64 encryptedAmount,
+        externalEuint64 amount_input,
         bytes calldata inputProof,
         bytes calldata data
-    ) public virtual nonReentrant returns (sharedEuint64) {
-        euint64 transferred = _transferAndCall(msg.sender, to, FHE.asEuint64(encryptedAmount, inputProof), data);
-        return FHE.shareEuint64(transferred, msg.sender);
+    ) external virtual nonReentrant returns (sharedEuint64) {
+        euint64 amount = FHE.asEuint64(amount_input, inputProof);
+        return FHE.shareEuint64(_transferAndCall(msg.sender, to, amount, data), msg.sender);
     }
 
     /// @inheritdoc IERC7984
     function confidentialTransferAndCall(
         address to,
-        sharedEuint64 sharedAmount,
+        sharedEuint64 amount_shared,
         bytes calldata data
-    ) public virtual nonReentrant returns (sharedEuint64) {
-        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
-        euint64 transferred = _transferAndCall(msg.sender, to, amount, data);
-        return FHE.shareEuint64(transferred, msg.sender);
+    ) external virtual nonReentrant returns (sharedEuint64) {
+        euint64 amount = FHE.receiveEuint64Param(amount_shared);
+        return FHE.shareEuint64(_transferAndCall(msg.sender, to, amount, data), msg.sender);
     }
 
     /// @inheritdoc IERC7984
     function confidentialTransferFromAndCall(
         address from,
         address to,
-        externalEuint64 encryptedAmount,
+        externalEuint64 amount_input,
         bytes calldata inputProof,
         bytes calldata data
-    ) public virtual nonReentrant returns (sharedEuint64) {
-        if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
-        euint64 transferred = _transferAndCall(from, to, FHE.asEuint64(encryptedAmount, inputProof), data);
-        return FHE.shareEuint64(transferred, msg.sender);
+    ) external virtual nonReentrant returns (sharedEuint64) {
+        {
+            if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
+        }
+        euint64 amount = FHE.asEuint64(amount_input, inputProof);
+        return FHE.shareEuint64(_transferAndCall(from, to, amount, data), msg.sender);
     }
 
     /// @inheritdoc IERC7984
     function confidentialTransferFromAndCall(
         address from,
         address to,
-        sharedEuint64 sharedAmount,
+        sharedEuint64 amount_shared,
         bytes calldata data
-    ) public virtual nonReentrant returns (sharedEuint64) {
-        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
-        if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
-        euint64 transferred = _transferAndCall(from, to, amount, data);
-        return FHE.shareEuint64(transferred, msg.sender);
+    ) external virtual nonReentrant returns (sharedEuint64) {
+        {
+            if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
+        }
+        euint64 amount = FHE.receiveEuint64Param(amount_shared);
+        return FHE.shareEuint64(_transferAndCall(from, to, amount, data), msg.sender);
     }
 
     // =========================================================================
@@ -374,6 +376,9 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
             FHE.allowThis(ptr);
             $._totalSupply = ptr;
             $._indicatedTotalSupply = _incrementIndicator($._indicatedTotalSupply);
+            // Kept as an explicit call: `success` arrives by tuple destructuring into a
+            // pre-declared local, which fhec does not count as initialized (FHE2007 false
+            // positive). See FHEC-FINDINGS.md, "tuple destructuring ... not initialization".
             transferred = FHE.select(success, amount, FHE.asEuint64(0));
         } else {
             euint64 fromBalance = $._balances[from];
@@ -388,12 +393,12 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
         }
 
         if (to == address(0)) {
-            ptr = FHE.sub($._totalSupply, transferred);
+            ptr = FHE.sub($._totalSupply, transferred); // FHE2007 false positive, see above
             FHE.allowThis(ptr);
             $._totalSupply = ptr;
             $._indicatedTotalSupply = _decrementIndicator($._indicatedTotalSupply);
         } else {
-            ptr = FHE.add($._balances[to], transferred);
+            ptr = FHE.add($._balances[to], transferred); // FHE2007 false positive, see above
             FHE.allowThis(ptr);
             FHE.allow(ptr, to);
             $._balances[to] = ptr;
