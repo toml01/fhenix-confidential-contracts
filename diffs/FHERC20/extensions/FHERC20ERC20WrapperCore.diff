@@ -1,8 +1,8 @@
 # contracts/FHERC20/extensions/FHERC20ERC20WrapperCore.sol  ->  contracts/FHERC20/extensions/FHERC20ERC20WrapperCore.fsol
-# upstream 5138cb8 .. ported 86f1b7c
+# upstream 5138cb8 .. ported 4cefd22
 
 diff --git a/contracts/FHERC20/extensions/FHERC20ERC20WrapperCore.sol b/contracts/FHERC20/extensions/FHERC20ERC20WrapperCore.fsol
-index 57a601e..bae1f1c 100644
+index 57a601e..f78e395 100644
 --- a/contracts/FHERC20/extensions/FHERC20ERC20WrapperCore.sol
 +++ b/contracts/FHERC20/extensions/FHERC20ERC20WrapperCore.fsol
 @@ -8,11 +8,11 @@ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
@@ -31,7 +31,7 @@ index 57a601e..bae1f1c 100644
  
          uint256 excess = amount % rate();
          if (excess > 0) SafeERC20.safeTransfer(IERC20(underlying()), from, excess);
-@@ -96,12 +96,13 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper,
+@@ -96,12 +96,10 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper,
       *
       * Returns the amount of shielded token sent.
       */
@@ -42,26 +42,22 @@ index 57a601e..bae1f1c 100644
 -        euint64 shieldedAmountSent = _mint(to, FHE.asEuint64(SafeCast.toUint64(amount / rate())));
 -
 -        return FHE.shareEuint64(shieldedAmountSent, msg.sender);
-+        // Bound to a local because a `shared(...)` return cannot take a call expression whose
-+        // declaring contract inherits from outside the unit (FHE2012). See FHEC-FINDINGS.md.
-+        euint64 shieldedAmountSent = _mint(to, euint64(SafeCast.toUint64(amount / rate())));
-+        return shieldedAmountSent;
++        return _mint(to, euint64(SafeCast.toUint64(amount / rate())));
      }
  
      /**
-@@ -111,8 +112,9 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper,
+@@ -111,8 +109,8 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper,
       * Returns the encrypted amount that was burned. The claim is keyed by a unique id — read it
       * from {getClaim}/{getUserClaims}, NOT from the burned handle.
       */
 -    function unshield(address from, address to, uint64 amount) public virtual nonReentrant returns (sharedEuint64) {
 -        return FHE.shareEuint64(_unshield(from, to, FHE.asEuint64(amount)), msg.sender);
 +    function unshield(address from, address to, uint64 amount) public virtual nonReentrant returns (shared(msg.sender) euint64) {
-+        euint64 burned = _unshield(from, to, euint64(amount)); // FHE2012, see shield() above
-+        return burned;
++        return _unshield(from, to, euint64(amount));
      }
  
      /**
-@@ -125,10 +127,10 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper,
+@@ -125,10 +123,9 @@ abstract contract FHERC20ERC20WrapperCore is FHERC20Core, IFHERC20ERC20Wrapper,
      function unshield(
          address from,
          address to,
@@ -71,8 +67,7 @@ index 57a601e..bae1f1c 100644
 -        return FHE.shareEuint64(_unshield(from, to, amount), msg.sender);
 +        in shared euint64 amount
 +    ) external virtual nonReentrant returns (shared(msg.sender) euint64) {
-+        euint64 burned = _unshield(from, to, amount); // FHE2012, see shield() above
-+        return burned;
++        return _unshield(from, to, amount);
      }
  
      /**

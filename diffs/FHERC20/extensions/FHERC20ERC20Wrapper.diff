@@ -1,5 +1,5 @@
 # contracts/FHERC20/extensions/FHERC20ERC20Wrapper.sol  ->  contracts/FHERC20/extensions/FHERC20ERC20Wrapper.fsol
-# upstream 5138cb8 .. ported 86f1b7c
+# upstream 5138cb8 .. ported 4cefd22
 
 diff --git a/contracts/FHERC20/extensions/FHERC20ERC20Wrapper.sol b/contracts/FHERC20/extensions/FHERC20ERC20Wrapper.fsol
 index e6f0d79..2573f60 100644

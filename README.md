@@ -7,7 +7,9 @@ Solidity + raw `FHE.*` calls to **`.fsol`**, the Solidity dialect compiled by
 The port is the vehicle. The goal is to find and fix the weak points of `fhec` by
 building something real with it. **[`FHEC-FINDINGS.md`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/FHEC-FINDINGS.md)
 is the main deliverable** — 14 findings, each with a minimal repro, a workaround,
-and a suggested fix. The ported contracts are the by-product.
+and a suggested fix. All 14 are now fixed upstream. New findings go straight to
+the [fhec issue tracker](https://github.com/toml01/fhec/issues). The ported
+contracts are the by-product.
 
 > Upstream is unaudited and in active development. This fork adds a compiler to
 > that. Do not use it in production.
@@ -20,16 +22,25 @@ suite was never modified, so it stayed an honest oracle throughout.
 
 | | before | after |
 |---|---|---|
-| `FHE.*` call sites | 195 | 95 (**−51%**) |
+| `FHE.*` call sites | 195 | 90 (**−54%**) |
 | `FHE.asEuint64` / `asEbool` | 46 | 5 |
 | `FHE.shareEuint64` | 33 | 12 |
 | `FHE.receiveEuint64Param` | 15 | 6 |
-| `FHE.add/sub/gte/lte/eq` | 17 | 3 |
-| `FHE.select` | 8 | 1 |
+| `FHE.add/sub/gte/lte/eq` | 17 | 0 |
+| `FHE.select` | 8 | 0 |
 | source lines | 3777 | 3778 |
 
-The win is density, not length. Half the FHE boilerplate is gone and the line
-count is flat.
+The win is density, not length. Over half the FHE boilerplate is gone and the
+line count is flat. **Every arithmetic, comparison and `select` site is now an
+operator or a ternary** — none are left.
+
+The port ran in two rounds. Round 1 found 14 defects in `fhec`, all since fixed
+(PRs #62–#68). Round 2 re-ran the port against the fixed compiler and deleted
+**11 workarounds** the first round had needed. Four findings are still open,
+tracked as issues: [#70](https://github.com/toml01/fhec/issues/70),
+[#71](https://github.com/toml01/fhec/issues/71),
+[#72](https://github.com/toml01/fhec/issues/72),
+[#73](https://github.com/toml01/fhec/issues/73).
 
 Two results are worth singling out:
 
@@ -54,18 +65,17 @@ rewrites back on output. **—** means the file was renamed and nothing else.
 
 **Transpiled output** says whether the Solidity `fhec` generates is identical to
 upstream, ignoring comments. `identical` means the port is provably
-behaviour-preserving for that file — 34 of 42 are. **changed** means the `in` /
+behaviour-preserving for that file — 35 of 42 are. **changed** means the `in` /
 `in shared` / `shared(...)` sugar altered the emitted signature: it renames the
-ABI parameter to `<name>_input` / `<name>_shared`, and on `FHERC20Core` it also
-moved eight entrypoints from `public` to `external`, because `in shared` is
-`external`-only. Both are recorded as findings, not accepted as correct.
-
+ABI parameter of a function *with a body* to `<name>_input` / `<name>_shared`,
+and on `FHERC20Core` it also moved eight entrypoints from `public` to `external`,
+because `in shared` is `external`-only.
 
 ### FHERC20
 
 | Contract | Diff vs upstream | `FHE.*` calls | Transpiled output |
 |---|---|---|---|
-| [`FHERC20Core`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/FHERC20Core.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/FHERC20Core.diff)** | 37 → 18 | **changed** |
+| [`FHERC20Core`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/FHERC20Core.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/FHERC20Core.diff)** | 37 → 14 | **changed** |
 | [`FHERC20ERC20WrapperCore`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/extensions/FHERC20ERC20WrapperCore.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/extensions/FHERC20ERC20WrapperCore.diff)** | 10 → 3 | **changed** |
 | [`FHERC20NativeWrapperCore`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/extensions/FHERC20NativeWrapperCore.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/extensions/FHERC20NativeWrapperCore.diff)** | 11 → 3 | **changed** |
 | [`FHERC20Utils`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/FHERC20/utils/FHERC20Utils.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/FHERC20/utils/FHERC20Utils.diff)** | 3 → 2 | identical |
@@ -83,8 +93,8 @@ moved eight entrypoints from `public` to `external`, because `in shared` is
 
 | Contract | Diff vs upstream | `FHE.*` calls | Transpiled output |
 |---|---|---|---|
-| [`ERC20ConfidentialCoreUpgradeable`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.diff)** | 3 → 0 | **changed** |
-| [`ERC20ConfidentialLib`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20ConfidentialLib.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/ERC20Confidential/ERC20ConfidentialLib.diff)** | 45 → 35 | identical |
+| [`ERC20ConfidentialCoreUpgradeable`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.diff)** | 3 → 0 | identical |
+| [`ERC20ConfidentialLib`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20ConfidentialLib.fsol) | **[diff](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/ERC20Confidential/ERC20ConfidentialLib.diff)** | 45 → 34 | identical |
 | [`ERC20Confidential`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20Confidential.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/ERC20Confidential/ERC20Confidential.diff) | — | identical |
 | [`ERC20ConfidentialIndicator`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20ConfidentialIndicator.fsol) | — | — | identical |
 | [`ERC20ConfidentialUpgradeable`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/contracts/ERC20Confidential/ERC20ConfidentialUpgradeable.fsol) | [imports only](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/diffs/ERC20Confidential/ERC20ConfidentialUpgradeable.diff) | — | identical |

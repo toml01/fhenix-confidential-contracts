@@ -1,5 +1,5 @@
 # contracts/FHERC20/utils/FHERC20Utils.sol  ->  contracts/FHERC20/utils/FHERC20Utils.fsol
-# upstream 5138cb8 .. ported 86f1b7c
+# upstream 5138cb8 .. ported 4cefd22
 
 diff --git a/contracts/FHERC20/utils/FHERC20Utils.sol b/contracts/FHERC20/utils/FHERC20Utils.fsol
 index a4fd9b6..8b75faa 100644

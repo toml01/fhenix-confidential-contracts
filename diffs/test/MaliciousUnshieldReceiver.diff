@@ -1,5 +1,5 @@
 # contracts/test/MaliciousUnshieldReceiver.sol  ->  contracts/test/MaliciousUnshieldReceiver.fsol
-# upstream 5138cb8 .. ported 86f1b7c
+# upstream 5138cb8 .. ported 4cefd22
 
 diff --git a/contracts/test/MaliciousUnshieldReceiver.sol b/contracts/test/MaliciousUnshieldReceiver.fsol
 index 4b6551c..ab09f09 100644

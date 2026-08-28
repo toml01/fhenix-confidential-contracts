@@ -1,8 +1,8 @@
 # contracts/FHERC20/extensions/FHERC20NativeWrapperCore.sol  ->  contracts/FHERC20/extensions/FHERC20NativeWrapperCore.fsol
-# upstream 5138cb8 .. ported 86f1b7c
+# upstream 5138cb8 .. ported 4cefd22
 
 diff --git a/contracts/FHERC20/extensions/FHERC20NativeWrapperCore.sol b/contracts/FHERC20/extensions/FHERC20NativeWrapperCore.fsol
-index 9dc2a8a..6d01a00 100644
+index 9dc2a8a..03af015 100644
 --- a/contracts/FHERC20/extensions/FHERC20NativeWrapperCore.sol
 +++ b/contracts/FHERC20/extensions/FHERC20NativeWrapperCore.fsol
 @@ -5,12 +5,12 @@ import { FHE, euint64, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE
@@ -64,19 +64,18 @@ index 9dc2a8a..6d01a00 100644
      }
  
      /**
-@@ -122,8 +122,9 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
+@@ -122,8 +122,8 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
       * Returns the encrypted amount that was burned. The claim is keyed by a unique id — read it
       * from {getClaim}/{getUserClaims}, NOT from the burned handle.
       */
 -    function unshield(address from, address to, uint64 amount) public virtual nonReentrant returns (sharedEuint64) {
 -        return FHE.shareEuint64(_unshield(from, to, FHE.asEuint64(amount)), msg.sender);
 +    function unshield(address from, address to, uint64 amount) public virtual nonReentrant returns (shared(msg.sender) euint64) {
-+        euint64 burned = _unshield(from, to, euint64(amount)); // FHE2012 workaround, see FHEC-FINDINGS.md
-+        return burned;
++        return _unshield(from, to, euint64(amount));
      }
  
      /**
-@@ -136,10 +137,10 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
+@@ -136,10 +136,9 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
      function unshield(
          address from,
          address to,
@@ -86,8 +85,7 @@ index 9dc2a8a..6d01a00 100644
 -        return FHE.shareEuint64(_unshield(from, to, amount), msg.sender);
 +        in shared euint64 amount
 +    ) external virtual nonReentrant returns (shared(msg.sender) euint64) {
-+        euint64 burned = _unshield(from, to, amount); // FHE2012 workaround, see FHEC-FINDINGS.md
-+        return burned;
++        return _unshield(from, to, amount);
      }
  
      /**

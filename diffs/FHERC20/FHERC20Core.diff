@@ -1,8 +1,8 @@
 # contracts/FHERC20/FHERC20Core.sol  ->  contracts/FHERC20/FHERC20Core.fsol
-# upstream 5138cb8 .. ported 86f1b7c
+# upstream 5138cb8 .. ported 4cefd22
 
 diff --git a/contracts/FHERC20/FHERC20Core.sol b/contracts/FHERC20/FHERC20Core.fsol
-index 1d2fec6..838348c 100644
+index 1d2fec6..9c14e8b 100644
 --- a/contracts/FHERC20/FHERC20Core.sol
 +++ b/contracts/FHERC20/FHERC20Core.fsol
 @@ -4,10 +4,10 @@ pragma solidity ^0.8.25;
@@ -161,28 +161,27 @@ index 1d2fec6..838348c 100644
      }
  
      function _incrementIndicator(uint32 current) internal pure returns (uint32) {
-@@ -374,6 +368,9 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
+@@ -374,7 +368,7 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
              FHE.allowThis(ptr);
              $._totalSupply = ptr;
              $._indicatedTotalSupply = _incrementIndicator($._indicatedTotalSupply);
-+            // Kept as an explicit call: `success` arrives by tuple destructuring into a
-+            // pre-declared local, which fhec does not count as initialized (FHE2007 false
-+            // positive). See FHEC-FINDINGS.md, "tuple destructuring ... not initialization".
-             transferred = FHE.select(success, amount, FHE.asEuint64(0));
+-            transferred = FHE.select(success, amount, FHE.asEuint64(0));
++            transferred = success ? amount : euint64(0);
          } else {
              euint64 fromBalance = $._balances[from];
-@@ -388,12 +385,12 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
+             if (!FHE.isInitialized(fromBalance)) revert FHERC20ZeroBalance(from);
+@@ -388,12 +382,12 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
          }
  
          if (to == address(0)) {
 -            ptr = FHE.sub($._totalSupply, transferred);
-+            ptr = FHE.sub($._totalSupply, transferred); // FHE2007 false positive, see above
++            ptr = $._totalSupply - transferred;
              FHE.allowThis(ptr);
              $._totalSupply = ptr;
              $._indicatedTotalSupply = _decrementIndicator($._indicatedTotalSupply);
          } else {
 -            ptr = FHE.add($._balances[to], transferred);
-+            ptr = FHE.add($._balances[to], transferred); // FHE2007 false positive, see above
++            ptr = $._balances[to] + transferred;
              FHE.allowThis(ptr);
              FHE.allow(ptr, to);
              $._balances[to] = ptr;

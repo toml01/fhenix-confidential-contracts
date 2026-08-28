@@ -1,5 +1,5 @@
 # contracts/ERC20Confidential/ERC20Confidential.sol  ->  contracts/ERC20Confidential/ERC20Confidential.fsol
-# upstream 5138cb8 .. ported 86f1b7c
+# upstream 5138cb8 .. ported 4cefd22
 
 diff --git a/contracts/ERC20Confidential/ERC20Confidential.sol b/contracts/ERC20Confidential/ERC20Confidential.fsol
 index 5117ff2..1ef3217 100644

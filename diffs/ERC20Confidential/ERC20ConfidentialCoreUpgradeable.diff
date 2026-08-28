@@ -1,8 +1,8 @@
 # contracts/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.sol  ->  contracts/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.fsol
-# upstream 5138cb8 .. ported 86f1b7c
+# upstream 5138cb8 .. ported 4cefd22
 
 diff --git a/contracts/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.sol b/contracts/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.fsol
-index 92b2d12..bed141e 100644
+index 92b2d12..190ec19 100644
 --- a/contracts/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.sol
 +++ b/contracts/ERC20Confidential/ERC20ConfidentialCoreUpgradeable.fsol
 @@ -2,9 +2,9 @@
@@ -18,7 +18,7 @@ index 92b2d12..bed141e 100644
  import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
  
  /**
-@@ -184,14 +184,20 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
+@@ -184,14 +184,14 @@ abstract contract ERC20ConfidentialCoreUpgradeable is IERC20ConfidentialCore, Re
          ERC20ConfidentialLib.shield(amount);
      }
  
@@ -26,20 +26,14 @@ index 92b2d12..bed141e 100644
 +    function unshield(uint64 amount) public virtual nonReentrant returns (shared(msg.sender) euint64) {
          _beforeConfidentialMove(msg.sender, address(0));
 -        return FHE.shareEuint64(ERC20ConfidentialLib.unshield(FHE.asEuint64(amount)), msg.sender);
-+        // Bound to a local: this contract inherits `ReentrancyGuardTransient`, which is outside
-+        // the compilation unit, so every call in it types as Unknown (FHE2012).
-+        // See FHEC-FINDINGS.md, "any out-of-unit base poisons call typing".
-+        euint64 burned = ERC20ConfidentialLib.unshield(euint64(amount));
-+        return burned;
++        return ERC20ConfidentialLib.unshield(euint64(amount));
      }
  
 -    function unshield(sharedEuint64 sharedAmount) public virtual nonReentrant returns (sharedEuint64) {
 +    function unshield(sharedEuint64 sharedAmount) public virtual nonReentrant returns (shared(msg.sender) euint64) {
          _beforeConfidentialMove(msg.sender, address(0));
 -        return FHE.shareEuint64(ERC20ConfidentialLib.unshieldChecked(sharedAmount), msg.sender);
-+        // Same FHE2012 workaround as unshield(uint64) above.
-+        euint64 burned = ERC20ConfidentialLib.unshieldChecked(sharedAmount);
-+        return burned;
++        return ERC20ConfidentialLib.unshieldChecked(sharedAmount);
      }
  
      // No reentrancy guard: the only external call is the self-call to `__ledger`

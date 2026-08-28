@@ -1,5 +1,5 @@
 # contracts/test/ERC20_Harness.sol  ->  contracts/test/ERC20_Harness.fsol
-# upstream 5138cb8 .. ported 86f1b7c
+# upstream 5138cb8 .. ported 4cefd22
 
 diff --git a/contracts/test/ERC20_Harness.sol b/contracts/test/ERC20_Harness.fsol
 index 7e8be4b..985bee7 100644

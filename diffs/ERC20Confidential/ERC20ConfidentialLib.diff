@@ -1,8 +1,8 @@
 # contracts/ERC20Confidential/ERC20ConfidentialLib.sol  ->  contracts/ERC20Confidential/ERC20ConfidentialLib.fsol
-# upstream 5138cb8 .. ported 86f1b7c
+# upstream 5138cb8 .. ported 4cefd22
 
 diff --git a/contracts/ERC20Confidential/ERC20ConfidentialLib.sol b/contracts/ERC20Confidential/ERC20ConfidentialLib.fsol
-index 5ddc690..321d624 100644
+index 5ddc690..fa804df 100644
 --- a/contracts/ERC20Confidential/ERC20ConfidentialLib.sol
 +++ b/contracts/ERC20Confidential/ERC20ConfidentialLib.fsol
 @@ -4,9 +4,9 @@ pragma solidity ^0.8.25;
@@ -18,6 +18,15 @@ index 5ddc690..321d624 100644
  
  /// @dev Self-only bridge the host token exposes so this delegatecall'd library can
  /// reach the host's ledger hooks (`_ledgerTransfer` / `_ledgerMint`) for the
+@@ -143,7 +143,7 @@ library ERC20ConfidentialLib {
+         }
+ 
+         if (to != address(0)) {
+-            ptr = FHE.add($._confidentialBalances[to], transferred);
++            ptr = $._confidentialBalances[to] + transferred;
+             FHE.allowThis(ptr);
+             FHE.allow(ptr, to);
+             if (obs != address(0)) FHE.allow(ptr, obs);
 @@ -220,7 +220,7 @@ library ERC20ConfidentialLib {
          uint64 amountConfidential = SafeCast.toUint64(amountToShield / rate);
  
