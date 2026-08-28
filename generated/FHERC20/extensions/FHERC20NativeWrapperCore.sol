@@ -123,7 +123,8 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
      * from {getClaim}/{getUserClaims}, NOT from the burned handle.
      */
     function unshield(address from, address to, uint64 amount) public virtual nonReentrant returns (sharedEuint64) {
-        return FHE.shareEuint64(_unshield(from, to, FHE.asEuint64(amount)), msg.sender);
+        euint64 burned = _unshield(from, to, FHE.asEuint64(amount)); // FHE2012 workaround, see FHEC-FINDINGS.md
+        return FHE.shareEuint64(burned, msg.sender);
     }
 
     /**
@@ -136,10 +137,11 @@ abstract contract FHERC20NativeWrapperCore is FHERC20Core, IFHERC20NativeWrapper
     function unshield(
         address from,
         address to,
-        sharedEuint64 sharedAmount
-    ) public virtual nonReentrant returns (sharedEuint64) {
-        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
-        return FHE.shareEuint64(_unshield(from, to, amount), msg.sender);
+        sharedEuint64 amount_shared
+    ) external virtual nonReentrant returns (sharedEuint64) {
+        euint64 amount = FHE.receiveEuint64Param(amount_shared);
+        euint64 burned = _unshield(from, to, amount); // FHE2012 workaround, see FHEC-FINDINGS.md
+        return FHE.shareEuint64(burned, msg.sender);
     }
 
     /**

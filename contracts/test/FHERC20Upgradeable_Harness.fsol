@@ -20,10 +20,10 @@ contract FHERC20Upgradeable_Harness is FHERC20Upgradeable {
     }
 
     function mint(address account, uint64 value) public {
-        _mint(account, FHE.asEuint64(value));
+        _mint(account, euint64(value));
     }
 
     function burn(address account, uint64 value) public {
-        _burn(account, FHE.asEuint64(value));
+        _burn(account, euint64(value));
     }
 }
