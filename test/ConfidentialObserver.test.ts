@@ -5,7 +5,7 @@ import hre, { ethers } from "hardhat";
 // shield/unshield/mint into ERC20ConfidentialLib (reached via the self-only
 // `__ledger` bridge), against the real CoFHE mocks. Uses a minimal confidential
 // token harness (no M0 base) that shares the exact core + library FUSDJmi uses.
-const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
+const LIB_FQN = "generated/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
 const POOL = "0x1011000000000000000000000000000000000000";
 
 async function deployHarness() {

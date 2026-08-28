@@ -30,3 +30,6 @@ deployments/localhost
 temp
 gasReporterOutput.json
 .worktrees/
+
+# fhec transpiler output metadata (generated/*.sol IS committed)
+generated/.fhec

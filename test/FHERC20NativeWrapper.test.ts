@@ -32,7 +32,7 @@ async function getUnshieldRequest(
 }
 
 // The wrappers delegate claim bookkeeping to the external ERC20ConfidentialLib — link it.
-const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
+const LIB_FQN = "generated/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
 
 describe("FHERC20NativeWrapper", function () {
   const deployContracts = async () => {

@@ -6,7 +6,7 @@ import { ConfidentialHarness } from "../typechain-types";
 // Core + ERC20ConfidentialLib delegatecall path (the same path FUSDJmi/FhenixToken use).
 // The batch is a length-checked loop over the single-claim library function, so a passing
 // batch confirms N pending claims settle atomically in one transaction.
-const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
+const LIB_FQN = "generated/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
 
 describe("claimUnshieldedBatch", function () {
   async function deployHarness(): Promise<ConfidentialHarness> {

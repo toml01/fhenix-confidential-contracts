@@ -21,7 +21,7 @@ import { prepExpectFHERC20BalancesChange, expectFHERC20BalancesChange } from "./
 //
 // The sibling ERC20ConfidentialCoreUpgradeable already guards this (see
 // ReentrancyExploit.test.ts). These tests lock the same guard onto the FHERC20 family.
-const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
+const LIB_FQN = "generated/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
 
 describe("FHERC20 *AndCall reentrancy (grok-audit-1 #1)", function () {
   const AMOUNT = BigInt(1e6); // 1.0 confidential unit at 6 decimals

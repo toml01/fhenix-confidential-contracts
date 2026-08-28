@@ -4,7 +4,7 @@ import { shouldBehaveLikeERC20Confidential } from "./ERC20Confidential.behavior"
 
 // The thin-host ERC20Confidential delegates its FHE logic to the external
 // ERC20ConfidentialLib — deploy it once and link it into every token factory.
-const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
+const LIB_FQN = "generated/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
 
 describe("ERC20Confidential", function () {
   async function getLinkedFactory() {

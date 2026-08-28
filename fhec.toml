@@ -1,0 +1,23 @@
+# fhec project configuration.
+# Every key shown commented-out is at its default value.
+
+[project]
+# Directory scanned for .fsol / .sol sources.
+src = "contracts"
+# Output mirror for transpiled Solidity (committed to git by convention).
+out = "generated"
+# Include/exclude globs, relative to `src`. Exclusion wins.
+# include = ["**/*.fsol", "**/*.sol"]
+# exclude = []
+
+[target]
+# Target library profile and pinned profile version.
+profile = "cofhe"
+version = "0.2.x"
+# solc requirement used by the verify stage.
+# solc = ">=0.8.25 <0.9.0"
+# evm_version = "cancun"
+
+[acl]
+# "insert" applies ACL rules R1-R3 automatically; "suggest" only reports fix-its.
+mode = "insert"

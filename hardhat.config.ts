@@ -1,6 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import * as dotenv from "dotenv";
 dotenv.config();
+
+// fhec ships no npm package yet, so the plugin cannot find the native binary on
+// its own from outside the fhec checkout. Point it at a local build. Override
+// with FHEC_BINARY_PATH in .env to use a different one.
+// See FHEC-FINDINGS.md, "cannot be installed outside the fhec monorepo".
+import * as os from "os";
+import * as path from "path";
+process.env.FHEC_BINARY_PATH ??= path.join(os.homedir(), "dev/fhec/target/release/fhec");
+
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-ethers";
@@ -12,6 +21,10 @@ import "@nomicfoundation/hardhat-verify";
 import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 import "@cofhe/hardhat-plugin";
+// Transpiles .fsol -> generated/ before compile, and remaps solc errors back to
+// the .fsol source. It also repoints `paths.sources` at `generated/`, which is
+// why every fully-qualified contract name below carries that prefix.
+import "@fhec/hardhat-plugin";
 
 // If not set, it uses ours Alchemy's default API key.
 // You can get your own at https://dashboard.alchemyapi.io
@@ -66,7 +79,9 @@ const config: HardhatUserConfig = {
       // selector, so a stale link fails at runtime rather than at link time. The 0.8.26 /
       // runs:1 / cancun pin is retained so that this version is itself reproducible. Consumers
       // link by address, so their own bytecode is unaffected by these settings.
-      "contracts/ERC20Confidential/ERC20ConfidentialLib.sol": {
+      // NOTE: `generated/`, not `contracts/` — @fhec/hardhat-plugin repoints
+      // `paths.sources` at the transpiler output, which renames every source.
+      "generated/ERC20Confidential/ERC20ConfidentialLib.sol": {
         version: "0.8.26",
         settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 1 } },
       },

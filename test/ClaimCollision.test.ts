@@ -18,7 +18,7 @@ import { ConfidentialHarness } from "../typechain-types";
 //
 // This exercises the Core + ERC20ConfidentialLib delegatecall path that FUSDJmi uses
 // (via ConfidentialHarness).
-const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
+const LIB_FQN = "generated/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
 
 describe("unshield claim-key collision", function () {
   async function deployHarness(): Promise<ConfidentialHarness> {

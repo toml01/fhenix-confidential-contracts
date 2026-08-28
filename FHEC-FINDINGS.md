@@ -64,3 +64,101 @@ once it becomes a real finding, or delete it once answered.
   stable, (b) offer `out = "contracts"` with the `.fsol` sources held
   elsewhere, or (c) emit an FHExxxx warning at load listing config keys and
   source files that contain a `contracts/…:Name` literal.
+
+### `@fhec/hardhat-plugin` cannot be installed outside the fhec monorepo
+
+- **Where:** `packages/hardhat-plugin/package.json`, `packages/fhec/package.json`
+- **Severity:** blocker
+- **Expected:** the README says `pnpm add -D @fhec/hardhat-plugin`. That should
+  work in any Hardhat project.
+- **Got:** two failures in a row, each needing an undocumented workaround.
+
+  1. The plugin declares `"fhec": "workspace:*"`. Outside the workspace, pnpm
+     stops with:
+     ```
+     ERR_PNPM_WORKSPACE_PKG_NOT_FOUND  "fhec@workspace:*" is in the
+     dependencies but no package named "fhec" is present in the workspace
+     ```
+     The `fhec` wrapper package is also `"private": true`, so it cannot be
+     fetched from the registry either. Neither package is on npm today, so
+     the documented install line cannot work for anyone.
+
+  2. After forcing the dep through with a pnpm override, the binary still does
+     not resolve. `lib/resolve.js` falls back to
+     `../../../target/{release,debug}/fhec` relative to itself, which assumes
+     the package sits inside the cargo checkout. pnpm materialises a `file:`
+     dependency into its own store, so that relative path no longer reaches
+     `~/dev/fhec/target/`. The failure text is good — it lists every path
+     tried and three fixes — but it arrives where a user expects a working
+     install.
+
+- **Repro:**
+  ```sh
+  cd <any-hardhat-2-project>
+  pnpm add -D file:$HOME/dev/fhec/packages/hardhat-plugin
+  ```
+- **Workaround:** both of these together.
+  ```jsonc
+  // package.json
+  "pnpm": { "overrides": { "fhec": "file:/abs/path/to/fhec/packages/fhec" } }
+  ```
+  ```sh
+  export FHEC_BINARY_PATH=$HOME/dev/fhec/target/release/fhec
+  ```
+- **Suggested fix:** publish `fhec` and `@fhec/cli-<platform>` to npm and drop
+  `private: true`; until then, document the two workarounds in the plugin
+  README under a "local checkout" heading. The `workspace:*` pin is the harder
+  half — a published `fhec` with a real semver range fixes it for good.
+
+### POSITIVE: the no-op guarantee holds byte-for-byte on a real codebase
+
+Not a defect. Recorded because it is the result the port was designed to test,
+and it should stay true.
+
+- **Where:** all 42 files under `contracts/`
+- **Result:** `fhec build` on the untouched Solidity tree reports
+  `42 file(s) ... (42 pass-through), 0 rewrite site(s)`, and
+  `diff -r contracts generated` is empty apart from `generated/.fhec/`.
+  `pnpm test` then passes 254 of 254 with no source change at all.
+- **Speed:** 0.26 s for the whole tree. No complaint here.
+- **Worth keeping:** this repo is a good regression corpus for the guarantee —
+  6 files with inline assembly, ERC-7201 namespaced storage, two external
+  libraries, `using … for`, multiple inheritance, and file-level custom errors,
+  none of which the transpiler disturbed.
+
+### Third-party solc warnings are re-emitted as FHE6000 noise
+
+- **Where:** `fhec build` output; `crates/fhec-cli/src/gate.rs`
+- **Severity:** friction
+- **Expected:** diagnostics about my code. Warnings from `node_modules` are not
+  actionable and drown the ones that are.
+- **Got:** five FHE6000 warnings on a clean build, four of them from
+  OpenZeppelin sources this repo only consumes:
+  ```
+  warning[FHE6000]: Transient storage as defined by EIP-1153 can break ...
+    --> @openzeppelin/contracts/utils/TransientSlot.sol:108:13
+  warning[FHE6000]: Unreachable code.
+    --> @openzeppelin/contracts/token/ERC20/ERC20.sol:145:9
+  ```
+  The EIP-1153 one is a 60-word paragraph. On a real project the signal-to-noise
+  ratio makes the build output not worth reading, which defeats the point of
+  forwarding solc diagnostics at all.
+- **Repro:** any project importing OpenZeppelin v5, `fhec build` (without
+  `--no-verify`).
+- **Workaround:** `--no-verify`, which the Hardhat plugin passes by default. So
+  most users never see this — but they also lose the verify gate.
+- **Suggested fix:** suppress non-error FHE6000 for files outside `project.src`
+  by default, with a flag to restore them.
+
+### `fhec check` succeeds silently
+
+- **Where:** `crates/fhec-cli` — `check` command
+- **Severity:** polish
+- **Expected:** a one-line confirmation of what was checked.
+- **Got:** no output at all, exit 0. On a 42-file repo this is
+  indistinguishable from "found nothing to do", which matters when `src` is
+  misconfigured — a wrong `project.src` also prints nothing and exits 0.
+  `--verbose` gives the useful line:
+  `fhec: 42 file(s) checked clean, 0 rewrite site(s) (config hash 2ff8718ac003)`
+- **Suggested fix:** print that line by default; keep silence for `--json`.
+  Loudly fail, or at least warn, when zero files match `include`.

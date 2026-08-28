@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  fhec: file:/Users/toml/dev/fhec/packages/fhec
+
 importers:
 
   .:
@@ -48,6 +51,9 @@ importers:
       '@ethersproject/providers':
         specifier: ~5.7.2
         version: 5.7.2
+      '@fhec/hardhat-plugin':
+        specifier: file:/Users/toml/dev/fhec/packages/hardhat-plugin
+        version: file:../fhec/packages/hardhat-plugin(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))
       '@nomicfoundation/hardhat-chai-matchers':
         specifier: ~2.0.7
         version: 2.0.9(@nomicfoundation/hardhat-ethers@3.0.9(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)))(chai@4.5.0)(ethers@6.13.7)(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))
@@ -388,6 +394,12 @@ packages:
   '@fastify/busboy@2.1.1':
     resolution: {integrity: sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA==}
     engines: {node: '>=14'}
+
+  '@fhec/hardhat-plugin@file:../fhec/packages/hardhat-plugin':
+    resolution: {directory: ../fhec/packages/hardhat-plugin, type: directory}
+    engines: {node: '>=22'}
+    peerDependencies:
+      hardhat: ^2.0.0
 
   '@fhenixprotocol/cofhe-contracts@0.2.0':
     resolution: {integrity: sha512-8VNnTSSG1xdZPFwQybBWX0xzOYIlL9v6QAFa35tER7ChaAJx9JUcNT2UqZQux84ZCplOkS4cCfUv/mtQ/6nEzg==}
@@ -1519,6 +1531,10 @@ packages:
       picomatch:
         optional: true
 
+  fhec@file:../fhec/packages/fhec:
+    resolution: {directory: ../fhec/packages/fhec, type: directory}
+    hasBin: true
+
   file-entry-cache@6.0.1:
     resolution: {integrity: sha512-7Gps/XWymbLk2QLYK4NzpMOrYjMhdIxXuIvy2QBsLE6ljuodKvdkWs/cpyJJ3CVIVpH0Oi1Hvg1ovbMzLdFBBg==}
     engines: {node: ^10.12.0 || >=12.0.0}
@@ -2553,6 +2569,10 @@ packages:
     resolution: {integrity: sha512-qMCMfhY040cVHT43K9BFygqYbUPFZKHOg7K73mtTWJRb8pyP3fzf4Ixd5SzdEJQ6MRUg/WBnOLxghZtKKurENQ==}
     engines: {node: '>=10'}
 
+  smol-toml@1.8.0:
+    resolution: {integrity: sha512-kCZr2V3ch9i00x8zXRhjUNVcjG9ijES5dDudkXvUVCT5QlJNQWElSJdZqyPemffHoLNUYwOcou0Fy+ojN0uHSQ==}
+    engines: {node: '>= 18'}
+
   solc@0.8.26:
     resolution: {integrity: sha512-yiPQNVf5rBFHwN6SIf3TUUvVAFKcQqmSUFeq+fb6pNRCo0ZCgpYOZDi3BVoezCPIAcKrVYd/qXlBLUP9wVrZ9g==}
     engines: {node: '>=10.0.0'}
@@ -3574,6 +3594,12 @@ snapshots:
       '@ethersproject/strings': 5.8.0
 
   '@fastify/busboy@2.1.1': {}
+
+  '@fhec/hardhat-plugin@file:../fhec/packages/hardhat-plugin(hardhat@2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4))':
+    dependencies:
+      fhec: file:../fhec/packages/fhec
+      hardhat: 2.26.1(ts-node@10.9.2(@types/node@24.1.0)(typescript@5.5.4))(typescript@5.5.4)
+      smol-toml: 1.8.0
 
   '@fhenixprotocol/cofhe-contracts@0.2.0':
     dependencies:
@@ -4872,6 +4898,8 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.3
 
+  fhec@file:../fhec/packages/fhec: {}
+
   file-entry-cache@6.0.1:
     dependencies:
       flat-cache: 3.2.0
@@ -6008,6 +6036,8 @@ snapshots:
       ansi-styles: 4.3.0
       astral-regex: 2.0.0
       is-fullwidth-code-point: 3.0.0
+
+  smol-toml@1.8.0: {}
 
   solc@0.8.26(debug@4.4.1):
     dependencies:
