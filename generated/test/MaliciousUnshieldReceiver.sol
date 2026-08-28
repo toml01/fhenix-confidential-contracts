@@ -32,12 +32,12 @@ contract MaliciousUnshieldReceiver is IERC7984Receiver {
     function onConfidentialTransferReceived(
         address /* operator */,
         address /* from */,
-        sharedEuint64 sharedAmount,
+        // Requires the sharer to be `msg.sender` (the token), so an arbitrary caller cannot
+        // reach this callback with a handle nobody shared.
+        sharedEuint64 amount_shared,
         bytes calldata /* data */
     ) external returns (sharedEbool) {
-        // Unwrap the directed share. Requires the sharer to be `msg.sender` (the token), so an
-        // arbitrary caller cannot reach this callback with a handle nobody shared.
-        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
+        euint64 amount = FHE.receiveEuint64Param(amount_shared);
         // The forward leg already credited us `amount` and granted us ACL on the
         // handle, so we can unshield it right now — before the refund leg runs.
         if (!reentered) {

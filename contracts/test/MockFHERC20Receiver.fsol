@@ -16,7 +16,7 @@ contract MockFHERC20Receiver is IERC7984Receiver {
         address,
         sharedEuint64,
         bytes calldata data
-    ) external returns (sharedEbool) {
+    ) external returns (shared(msg.sender) ebool) {
         uint8 input = abi.decode(data, (uint8));
 
         if (input > 1) revert InvalidInput(input);
@@ -24,9 +24,9 @@ contract MockFHERC20Receiver is IERC7984Receiver {
         bool success = input == 1;
         emit ConfidentialTransferCallback(success);
 
-        ebool returnVal = FHE.asEbool(success);
+        ebool returnVal = ebool(success);
 
         // Directed back at the token that called us, instead of an out-of-band grant.
-        return FHE.shareEbool(returnVal, msg.sender);
+        return returnVal;
     }
 }

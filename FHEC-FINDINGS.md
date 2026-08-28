@@ -491,7 +491,7 @@ and it should stay true.
   component of its left-hand side, `(, x, y) = f()` included. Case B already
   proves the machinery exists; it just is not wired to the assignment form.
 
-### BLOCKER: a `shared(...)` return rejects any call into a contract that inherits from node_modules
+### BLOCKER: any out-of-unit base poisons call typing in the whole contract
 
 - **Where:** `contracts/FHERC20/extensions/FHERC20ERC20WrapperCore.fsol:102, 113, 128`
 - **Severity:** blocker — this one will hit almost every real Solidity project
@@ -525,9 +525,29 @@ and it should stay true.
       }
   }
   ```
-  One OpenZeppelin base anywhere in the declaring contract's chain makes every
-  inherited member resolve to `Unknown`, and the shared-return check then
-  refuses it. It is not about the encrypted types at all.
+  It took eight repro rounds to pin down, because the obvious hypotheses were
+  all wrong. It is **not** about libraries, `public` vs `internal`, cross-file
+  imports, overloads, or the encrypted types. The rule is:
+
+  > If the **calling** contract's linearized base chain contains anything the
+  > compilation unit cannot see, every call expression in that contract types as
+  > `Unknown`.
+
+  The callee is irrelevant — it can be fully resolvable, in another file, with a
+  named return, and it is still `Unknown`. Final repro, where the *only* edit is
+  the base list of the caller:
+  ```solidity
+  // contracts/L.fsol
+  library L { function pub(euint64 a) public returns (euint64 out) { out = a; } }
+
+  // contracts/T.fsol
+  contract T {                                    // CLEAN
+      function c1(euint64 a) external returns (shared(msg.sender) euint64) { return L.pub(a); }
+  }
+  contract T is ReentrancyGuardTransient {        // FHE2012 on the identical line
+      function c1(euint64 a) external returns (shared(msg.sender) euint64) { return L.pub(a); }
+  }
+  ```
 
 - **Why this is severe:** essentially every production Solidity contract
   inherits something from `node_modules` — OpenZeppelin, Solmate, an upgradeable
@@ -544,12 +564,16 @@ and it should stay true.
   Applied at all three sites, with a comment. It costs the one-liner the sugar
   was supposed to buy.
 
-- **Suggested fix:** the return type of a *statically resolved* function should
-  come from its own declaration regardless of whether its contract's base list
-  is complete. Incomplete inheritance should only make *unresolved* names
-  `Unknown`, not members the binder actually found. Failing that, say so in the
-  diagnostic — "cannot prove" gives no hint that an unrelated base import is the
-  cause, and I burned four separate repro rounds finding it.
+- **Suggested fix:** incomplete inheritance should only make *unresolved* names
+  `Unknown`. A call the binder statically resolved has a known return type, and
+  that type should stand whatever the caller's base list looks like. Right now
+  one unseen base disables the feature for every call in the contract.
+- **Diagnostic fix, independently:** "of a type the checker cannot prove is that
+  encrypted type" gives no hint that an unrelated base import is the cause. It
+  should name what it resolved the expression to and why — e.g. "`L.pub` resolves
+  to `Unknown` because contract `T` inherits `ReentrancyGuardTransient`, which is
+  outside the compilation unit". That single sentence would have saved eight
+  repro rounds.
 
 ### `shared(...)` also rejects a call whose return parameter is unnamed
 

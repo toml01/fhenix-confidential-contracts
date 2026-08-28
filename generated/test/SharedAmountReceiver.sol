@@ -22,12 +22,11 @@ contract SharedAmountReceiver is IERC7984Receiver {
     function onConfidentialTransferReceived(
         address,
         address,
-        sharedEuint64 sharedAmount,
+        // Reverts unless `msg.sender` is the recorded sharer AND still holds the handle.
+        sharedEuint64 amount_shared,
         bytes calldata
     ) external returns (sharedEbool) {
-        // Reverts unless `msg.sender` is the recorded sharer AND still holds the handle.
-        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
-
+        euint64 amount = FHE.receiveEuint64Param(amount_shared);
         // A received handle carries transient access only, so persisting it past this
         // transaction requires allowThis on the UNWRAPPED value.
         FHE.allowThis(amount);

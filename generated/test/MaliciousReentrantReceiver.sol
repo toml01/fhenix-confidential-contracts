@@ -31,12 +31,12 @@ contract MaliciousReentrantReceiver is IERC7984Receiver {
     function onConfidentialTransferReceived(
         address /* operator */,
         address /* from */,
-        sharedEuint64 sharedAmount,
+        // Requires the sharer to be `msg.sender` (the token), so an arbitrary caller cannot
+        // reach this callback with a handle nobody shared.
+        sharedEuint64 amount_shared,
         bytes calldata /* data */
     ) external returns (sharedEbool) {
-        // Unwrap the directed share. Requires the sharer to be `msg.sender` (the token), so an
-        // arbitrary caller cannot reach this callback with a handle nobody shared.
-        euint64 amount = FHE.receiveEuint64Param(sharedAmount);
+        euint64 amount = FHE.receiveEuint64Param(amount_shared);
         // `msg.sender` is the token. The forward leg of `_moveAndCall` already
         // credited us `amount` and granted us ACL on this handle (update() line
         // 109), so we can spend it right now — before the refund leg runs.
