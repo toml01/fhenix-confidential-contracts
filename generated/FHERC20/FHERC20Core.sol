@@ -193,8 +193,9 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
     /// @inheritdoc IERC7984
     function confidentialTransfer(
         address to,
-        externalEuint64 amount_input
-    , bytes memory inputProof) external virtual nonReentrant returns (sharedEuint64) {
+        externalEuint64 amount_input,
+        bytes memory inputProof
+    ) external virtual nonReentrant returns (sharedEuint64) {
         euint64 amount = FHE.asEuint64(amount_input, inputProof);
         return FHE.shareEuint64(_transfer(msg.sender, to, amount), msg.sender);
     }
@@ -212,8 +213,9 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
     function confidentialTransferFrom(
         address from,
         address to,
-        externalEuint64 amount_input
-    , bytes memory inputProof) external virtual nonReentrant returns (sharedEuint64) {
+        externalEuint64 amount_input,
+        bytes memory inputProof
+    ) external virtual nonReentrant returns (sharedEuint64) {
         {
             if (!isOperator(from, msg.sender)) revert FHERC20UnauthorizedSpender(from, msg.sender);
         }
