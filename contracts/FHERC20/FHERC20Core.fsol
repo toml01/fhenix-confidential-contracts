@@ -368,7 +368,11 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
             FHE.allowThis(ptr);
             $._totalSupply = ptr;
             $._indicatedTotalSupply = _incrementIndicator($._indicatedTotalSupply);
-            transferred = success ? amount : euint64(0);
+            if (success) {
+                transferred = amount;
+            } else {
+                transferred = euint64(0);
+            }
         } else {
             euint64 fromBalance = $._balances[from];
             if (!FHE.isInitialized(fromBalance)) revert FHERC20ZeroBalance(from);

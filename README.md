@@ -63,6 +63,11 @@ Read the **diff** rows first: those 15 files carry the real port. **imports only
 means the single change is the `.sol` → `.fsol` import extension, which `fhec`
 rewrites back on output. **—** means the file was renamed and nothing else.
 
+Encrypted branches are written as `if` / `else`, not ternaries — since fhec #77
+a single-assignment `if/else` lowers to one `FHE.select`, so the readable form
+costs nothing. The two remaining ternaries are in argument position, where an
+`if` cannot go.
+
 **Transpiled output** says whether the Solidity `fhec` generates is identical to
 upstream, ignoring comments. `identical` means the port is provably
 behaviour-preserving for that file — 35 of 42 are. **changed** means the `in` /

@@ -22,7 +22,11 @@ library FHESafeMath {
         }
         euint64 newValue = oldValue + delta;
         success = newValue >= oldValue;
-        updated = success ? newValue : oldValue;
+        if (success) {
+            updated = newValue;
+        } else {
+            updated = oldValue;
+        }
     }
 
     /**
@@ -38,7 +42,11 @@ library FHESafeMath {
             return (delta == euint64(0), euint64(0));
         }
         success = oldValue >= delta;
-        updated = success ? oldValue - delta : oldValue;
+        if (success) {
+            updated = oldValue - delta;
+        } else {
+            updated = oldValue;
+        }
     }
 
     /**
@@ -66,7 +74,11 @@ library FHESafeMath {
         }
 
         success = balance >= amount;
-        spent = success ? amount : euint64(0);
+        if (success) {
+            spent = amount;
+        } else {
+            spent = euint64(0);
+        }
         // `spent` is `amount` only when it fits, 0 otherwise, so this can never underflow.
         updated = balance - spent;
     }
@@ -85,7 +97,11 @@ library FHESafeMath {
 
         euint64 sum = a + b;
         success = sum >= a;
-        res = success ? sum : euint64(0);
+        if (success) {
+            res = sum;
+        } else {
+            res = euint64(0);
+        }
     }
 
     /**
@@ -99,6 +115,10 @@ library FHESafeMath {
 
         euint64 difference = a - b;
         success = difference <= a;
-        res = success ? difference : euint64(0);
+        if (success) {
+            res = difference;
+        } else {
+            res = euint64(0);
+        }
     }
 }
