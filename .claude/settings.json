@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.claude/scripts/consult.sh *)",
+      "Bash(.claude/scripts/agent-worktree.sh *)",
+      "Bash(.claude/scripts/quota.sh)",
+      "Bash(.claude/scripts/quota.sh *)",
+      "Bash(echo *)",
+      "Bash(cat *)",
+      "Bash(git worktree *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch --list *)"
+    ]
+  }
+}
