@@ -481,6 +481,18 @@ and it should stay true.
 - **Workaround:** leave interfaces spelled with the plain `sharedEuint64` types
   and use the sugar only in implementations, where it actually generates the
   `FHE.receiveEuint64Param` call. That is what this port does.
+- **Re-tested after the fix (#66, and #84 for the FHE1022 over-refusal).** The
+  ABI penalty is gone: `in shared euint64 amount` on a bodiless declaration now
+  emits `sharedEuint64 amount`, and the compiled ABI reads
+  `['operator', 'from', 'amount', 'data']` exactly as before. 0 errors, 254
+  passing, generated signature byte-identical.
+  **The port still keeps interfaces plain**, for a different and smaller reason:
+  on a bodiless declaration the sugar generates nothing, so its only effect on
+  the artifact is widening the generated import to `ebool, euint64, sharedEbool,
+  sharedEuint64` — two names the emitted interface never uses. The generated
+  Solidity is the audited artifact, and that is a real if small cost for a
+  purely expressive gain. Viable now if the team prefers the intent in the
+  signature; not adopted unprompted.
 - **Suggested fix:** keep the author's parameter name in the emitted signature
   and use the internal `_shared` name only for the generated local. The same
   applies to `in` / `_input`.
