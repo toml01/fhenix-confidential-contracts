@@ -21,14 +21,16 @@ version = "0.2.x"
 [acl]
 # "suggest", not the default "insert".
 #
-# fhec no longer guesses `FHE.allowSender` on a mapping slot keyed by an address
-# other than `msg.sender` (fixed in fhec #65), so the balance leak that first
-# forced this setting is gone. One narrower case remains: R1 still adds
-# `FHE.allowSender($._totalSupply)` on mint and burn. Total supply is a global
-# aggregate that no caller owns, and the hand-written code deliberately grants
-# only `FHE.allowThis` there.
+# The safety objections are gone: fhec no longer guesses `FHE.allowSender` on a
+# slot it cannot prove is keyed by `msg.sender` (fhec #65, #81). Everything
+# `insert` writes today is safe.
 #
-# This repo has a deliberate, account-directed ACL policy, so it keeps writing
-# its own grants. "suggest" reports the same sites as notes and writes nothing.
-# See FHEC-FINDINGS.md.
+# What still blocks it is bytecode stability. R1 does not know that
+# `FHE.allowPublic` subsumes `FHE.allowThis`, so it would append a redundant
+# grant in `ERC20ConfidentialLib.syncConfidentialTotalSupply` — and that library
+# is pinned and linked by address, so any added instruction forces a redeploy
+# and a relink of every host. Tracked as fhec #85.
+#
+# Revisit when #85 lands: at that point `insert` should reproduce this repo's
+# hand-written policy exactly, and the manual grants could be deleted.
 mode = "suggest"

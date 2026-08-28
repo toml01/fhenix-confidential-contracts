@@ -688,7 +688,8 @@ New findings go straight to the fhec issue tracker, not into this file.
 
 | Issue | Title | Effect here |
 |---|---|---|
-| [#70](https://github.com/toml01/fhec/issues/70) | R1 still guesses `allowSender` on a global aggregate | The only thing keeping this repo on `acl.mode = "suggest"`. |
+| [#70](https://github.com/toml01/fhec/issues/70) ✅ | R1 still guesses `allowSender` on a global aggregate | **Fixed (#81).** `insert` no longer guesses a sender grant anywhere. |
+| [#85](https://github.com/toml01/fhec/issues/85) | R1 inserts a redundant `allowThis` after `allowPublic`/`allowGlobal` | Now the only thing keeping this repo on `suggest` — and a bytecode objection, not a safety one. |
 | [#71](https://github.com/toml01/fhec/issues/71) ✅ | A `.fsol` fully-qualified name is rejected as a library link key | **Fixed (#76).** All 13 FQN sites and the `solidity.overrides` key now name the `.fsol` file; `generated/` no longer appears in any config or test. |
 | [#72](https://github.com/toml01/fhec/issues/72) ✅ | Appended `inputProof` breaks formatting on a multiline parameter list | **Fixed (#74).** All 4 entrypoints now render normally. |
 | [#73](https://github.com/toml01/fhec/issues/73) ✅ | `if/else` with one assignment per arm could lower to a single `select` | **Fixed (#77).** All 5 encrypted branches now written as `if`/`else`; output unchanged. |
