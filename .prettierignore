@@ -3,9 +3,10 @@
 # text, so any reformat of this file invalidates verification of the instances deployed from
 # it, even though the executable code is unaffected. Keep it out of the formatter so that
 # only deliberate source changes (which imply a redeploy) can move the hash.
-contracts/ERC20Confidential/ERC20ConfidentialLib.sol
+contracts/ERC20Confidential/ERC20ConfidentialLib.fsol
 
 # Generated
+generated/
 artifacts/
 cache/
 typechain-types/

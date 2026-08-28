@@ -3,11 +3,11 @@ pragma solidity ^0.8.25;
 
 import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
-import { IFHERC20NativeWrapper } from "../../interfaces/IFHERC20NativeWrapper.sol";
-import { IWETH } from "../../interfaces/IWETH.sol";
-import { FHERC20 } from "../FHERC20.sol";
-import { FHERC20Core } from "../FHERC20Core.sol";
-import { FHERC20NativeWrapperCore } from "./FHERC20NativeWrapperCore.sol";
+import { IFHERC20NativeWrapper } from "../../interfaces/IFHERC20NativeWrapper.fsol";
+import { IWETH } from "../../interfaces/IWETH.fsol";
+import { FHERC20 } from "../FHERC20.fsol";
+import { FHERC20Core } from "../FHERC20Core.fsol";
+import { FHERC20NativeWrapperCore } from "./FHERC20NativeWrapperCore.fsol";
 
 /**
  * @dev Constructor-based host of {FHERC20NativeWrapperCore}: shields a chain's native token

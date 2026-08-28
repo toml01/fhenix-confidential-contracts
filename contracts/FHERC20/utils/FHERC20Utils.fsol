@@ -3,8 +3,8 @@ pragma solidity ^0.8.25;
 
 import { FHE, ebool, euint64, sharedEbool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
-import { IERC7984Receiver } from "../../interfaces/IERC7984Receiver.sol";
-import { FHERC20InvalidReceiver } from "./FHERC20Errors.sol";
+import { IERC7984Receiver } from "../../interfaces/IERC7984Receiver.fsol";
+import { FHERC20InvalidReceiver } from "./FHERC20Errors.fsol";
 
 /// @dev Library that provides common {FHERC20} utility functions.
 library FHERC20Utils {

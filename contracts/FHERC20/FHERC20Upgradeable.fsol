@@ -6,8 +6,8 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
-import { IFHERC20, IERC7984 } from "../interfaces/IFHERC20.sol";
-import { FHERC20Core } from "./FHERC20Core.sol";
+import { IFHERC20, IERC7984 } from "../interfaces/IFHERC20.fsol";
+import { FHERC20Core } from "./FHERC20Core.fsol";
 
 /**
  * @dev Upgradeable implementation of {IFHERC20} — proxy-friendly host over {FHERC20Core}.

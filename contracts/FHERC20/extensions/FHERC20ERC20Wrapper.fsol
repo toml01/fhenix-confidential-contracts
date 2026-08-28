@@ -5,10 +5,10 @@ import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { IERC1363Receiver } from "@openzeppelin/contracts/interfaces/IERC1363Receiver.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
-import { IFHERC20ERC20Wrapper } from "../../interfaces/IFHERC20ERC20Wrapper.sol";
-import { FHERC20 } from "../FHERC20.sol";
-import { FHERC20Core } from "../FHERC20Core.sol";
-import { FHERC20ERC20WrapperCore } from "./FHERC20ERC20WrapperCore.sol";
+import { IFHERC20ERC20Wrapper } from "../../interfaces/IFHERC20ERC20Wrapper.fsol";
+import { FHERC20 } from "../FHERC20.fsol";
+import { FHERC20Core } from "../FHERC20Core.fsol";
+import { FHERC20ERC20WrapperCore } from "./FHERC20ERC20WrapperCore.fsol";
 
 /**
  * @dev Constructor-based host of {FHERC20ERC20WrapperCore}: shields an `ERC20` token into a

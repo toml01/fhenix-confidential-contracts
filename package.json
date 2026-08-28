@@ -24,8 +24,11 @@
     "smart-contracts"
   ],
   "files": [
-    "contracts/**/*.sol",
-    "!contracts/test/**/*"
+    "contracts/**/*.fsol",
+    "generated/**/*.sol",
+    "!contracts/test/**/*",
+    "!generated/test/**/*",
+    "!generated/.fhec/**/*"
   ],
   "scripts": {
     "check-types": "tsc --noEmit --incremental",

@@ -4,10 +4,10 @@ pragma solidity ^0.8.25;
 import { FHE, euint64, externalEuint64, sharedEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
-import { IFHERC20, IERC7984 } from "../interfaces/IFHERC20.sol";
-import { FHESafeMath } from "../utils/FHESafeMath.sol";
-import { FHERC20Utils } from "./utils/FHERC20Utils.sol";
-import { FHERC20InvalidReceiver, FHERC20InvalidSender, FHERC20UnauthorizedSpender, FHERC20ZeroBalance, FHERC20UnauthorizedUseOfEncryptedAmount, FHERC20IncompatibleFunction } from "./utils/FHERC20Errors.sol";
+import { IFHERC20, IERC7984 } from "../interfaces/IFHERC20.fsol";
+import { FHESafeMath } from "../utils/FHESafeMath.fsol";
+import { FHERC20Utils } from "./utils/FHERC20Utils.fsol";
+import { FHERC20InvalidReceiver, FHERC20InvalidSender, FHERC20UnauthorizedSpender, FHERC20ZeroBalance, FHERC20UnauthorizedUseOfEncryptedAmount, FHERC20IncompatibleFunction } from "./utils/FHERC20Errors.fsol";
 
 /**
  * @dev Shared core of the {IFHERC20} reference implementation — the single home of all FHERC20

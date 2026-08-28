@@ -2,9 +2,9 @@
 pragma solidity ^0.8.25;
 
 import { FHE, euint64, externalEuint64, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import { IERC20ConfidentialCore } from "../interfaces/IERC20ConfidentialCore.sol";
-import { ERC20ConfidentialIndicator } from "./ERC20ConfidentialIndicator.sol";
-import { ERC20ConfidentialLib } from "./ERC20ConfidentialLib.sol";
+import { IERC20ConfidentialCore } from "../interfaces/IERC20ConfidentialCore.fsol";
+import { ERC20ConfidentialIndicator } from "./ERC20ConfidentialIndicator.fsol";
+import { ERC20ConfidentialLib } from "./ERC20ConfidentialLib.fsol";
 import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
 /**

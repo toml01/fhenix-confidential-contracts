@@ -19,5 +19,15 @@ version = "0.2.x"
 # evm_version = "cancun"
 
 [acl]
-# "insert" applies ACL rules R1-R3 automatically; "suggest" only reports fix-its.
-mode = "insert"
+# "suggest", not the default "insert".
+#
+# This repo has a deliberate, account-directed ACL policy: a balance ciphertext
+# is granted to its OWNER (`FHE.allow(ptr, from)`), never to `msg.sender`, who
+# in an operator transfer is a third party. Rule R1 appends
+# `FHE.allowSender(<slot>)` after every encrypted storage write, which would
+# hand that third party read access to another account's balance and to the
+# total supply. fhec warns about it (FHE4001) and then inserts it anyway.
+#
+# "suggest" reports the same sites as FHE4010-FHE4012 notes and writes nothing.
+# See FHEC-FINDINGS.md, "default acl.mode = insert injects a confidentiality leak".
+mode = "suggest"

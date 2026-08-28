@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { ERC20ConfidentialUpgradeable } from "../ERC20Confidential/ERC20ConfidentialUpgradeable.sol";
+import { ERC20ConfidentialUpgradeable } from "../ERC20Confidential/ERC20ConfidentialUpgradeable.fsol";
 
 contract ERC20ConfidentialUpgradeable_Harness is ERC20ConfidentialUpgradeable {
     /// @custom:oz-upgrades-unsafe-allow constructor

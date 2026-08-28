@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import { euint64, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import { IFHERC20 } from "../interfaces/IFHERC20.sol";
+import { IFHERC20 } from "../interfaces/IFHERC20.fsol";
 
 /**
  * @dev Interface for ERC-20 tokens extended with a second, confidential (FHE-encrypted) balance layer.

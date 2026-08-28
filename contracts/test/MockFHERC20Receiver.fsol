@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { IERC7984Receiver } from "../interfaces/IERC7984Receiver.sol";
+import { IERC7984Receiver } from "../interfaces/IERC7984Receiver.fsol";
 import { ebool, sharedEbool, sharedEuint64, FHE } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 contract MockFHERC20Receiver is IERC7984Receiver {

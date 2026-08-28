@@ -4,9 +4,9 @@ pragma solidity ^0.8.25;
 import { FHE, euint64, externalEuint64, sharedEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { FHESafeMath } from "../utils/FHESafeMath.sol";
-import { FHERC20Utils } from "../FHERC20/utils/FHERC20Utils.sol";
-import { ERC20ConfidentialIndicator } from "./ERC20ConfidentialIndicator.sol";
+import { FHESafeMath } from "../utils/FHESafeMath.fsol";
+import { FHERC20Utils } from "../FHERC20/utils/FHERC20Utils.fsol";
+import { ERC20ConfidentialIndicator } from "./ERC20ConfidentialIndicator.fsol";
 
 /// @dev Self-only bridge the host token exposes so this delegatecall'd library can
 /// reach the host's ledger hooks (`_ledgerTransfer` / `_ledgerMint`) for the

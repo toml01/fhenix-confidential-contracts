@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import { ERC20ConfidentialLib } from "../../ERC20Confidential/ERC20ConfidentialLib.sol";
+import { ERC20ConfidentialLib } from "../../ERC20Confidential/ERC20ConfidentialLib.fsol";
 
 /**
  * @dev Thin shared claim bookkeeping for {FHERC20} wrapper contracts, over the linked

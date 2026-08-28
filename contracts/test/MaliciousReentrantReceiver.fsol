@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { IERC7984Receiver } from "../interfaces/IERC7984Receiver.sol";
-import { IERC20ConfidentialCore } from "../interfaces/IERC20ConfidentialCore.sol";
+import { IERC7984Receiver } from "../interfaces/IERC7984Receiver.fsol";
+import { IERC20ConfidentialCore } from "../interfaces/IERC20ConfidentialCore.fsol";
 import { ebool, euint64, sharedEbool, sharedEuint64, FHE } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 /**

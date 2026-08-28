@@ -2,8 +2,8 @@
 pragma solidity ^0.8.25;
 
 import { FHE, externalEuint64, euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import { FHERC20 } from "../FHERC20/FHERC20.sol";
-import { FHESafeMath } from "../utils/FHESafeMath.sol";
+import { FHERC20 } from "../FHERC20/FHERC20.fsol";
+import { FHESafeMath } from "../utils/FHESafeMath.fsol";
 
 contract MockFHERC20Vault {
     FHERC20 public immutable asset;

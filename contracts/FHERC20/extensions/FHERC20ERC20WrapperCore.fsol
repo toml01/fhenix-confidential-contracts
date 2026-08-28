@@ -8,11 +8,11 @@ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { IFHERC20ERC20Wrapper } from "../../interfaces/IFHERC20ERC20Wrapper.sol";
-import { ERC20ConfidentialLib } from "../../ERC20Confidential/ERC20ConfidentialLib.sol";
-import { FHERC20Core } from "../FHERC20Core.sol";
-import { FHERC20WrapperClaims } from "../utils/FHERC20WrapperClaims.sol";
-import { FHERC20InvalidReceiver, FHERC20UnauthorizedSpender, FHERC20UnauthorizedCaller, FHERC20UnauthorizedUseOfEncryptedAmount } from "../utils/FHERC20Errors.sol";
+import { IFHERC20ERC20Wrapper } from "../../interfaces/IFHERC20ERC20Wrapper.fsol";
+import { ERC20ConfidentialLib } from "../../ERC20Confidential/ERC20ConfidentialLib.fsol";
+import { FHERC20Core } from "../FHERC20Core.fsol";
+import { FHERC20WrapperClaims } from "../utils/FHERC20WrapperClaims.fsol";
+import { FHERC20InvalidReceiver, FHERC20UnauthorizedSpender, FHERC20UnauthorizedCaller, FHERC20UnauthorizedUseOfEncryptedAmount } from "../utils/FHERC20Errors.fsol";
 
 /**
  * @dev Shared core of the ERC-20 wrapper — the single home of the wrap/shield/unshield/claim

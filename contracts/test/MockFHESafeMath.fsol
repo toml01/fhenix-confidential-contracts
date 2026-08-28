@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import { FHE, ebool, euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import { FHESafeMath } from "../utils/FHESafeMath.sol";
+import { FHESafeMath } from "../utils/FHESafeMath.fsol";
 
 /**
  * @notice Thin harness over {FHESafeMath} so its branches can be unit-tested directly, without

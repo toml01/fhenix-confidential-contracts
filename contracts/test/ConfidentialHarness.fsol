@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { ERC20ConfidentialCoreUpgradeable } from "../ERC20Confidential/ERC20ConfidentialCoreUpgradeable.sol";
-import { ERC20ConfidentialLib } from "../ERC20Confidential/ERC20ConfidentialLib.sol";
+import { ERC20ConfidentialCoreUpgradeable } from "../ERC20Confidential/ERC20ConfidentialCoreUpgradeable.fsol";
+import { ERC20ConfidentialLib } from "../ERC20Confidential/ERC20ConfidentialLib.fsol";
 import { euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 /// @notice Minimal concrete confidential token for testing the relocated core +

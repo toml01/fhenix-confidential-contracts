@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { ERC20Confidential } from "../ERC20Confidential/ERC20Confidential.sol";
+import { ERC20Confidential } from "../ERC20Confidential/ERC20Confidential.fsol";
 
 /**
  * @dev Mock implementation of ERC20Confidential for testing purposes with configurable decimals.
