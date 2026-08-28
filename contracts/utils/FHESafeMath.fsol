@@ -18,11 +18,11 @@ library FHESafeMath {
      */
     function tryIncrease(euint64 oldValue, euint64 delta) internal returns (ebool success, euint64 updated) {
         if (!FHE.isInitialized(oldValue)) {
-            return (FHE.asEbool(true), delta);
+            return (ebool(true), delta);
         }
-        euint64 newValue = FHE.add(oldValue, delta);
-        success = FHE.gte(newValue, oldValue);
-        updated = FHE.select(success, newValue, oldValue);
+        euint64 newValue = oldValue + delta;
+        success = newValue >= oldValue;
+        updated = success ? newValue : oldValue;
     }
 
     /**
@@ -33,12 +33,12 @@ library FHESafeMath {
     function tryDecrease(euint64 oldValue, euint64 delta) internal returns (ebool success, euint64 updated) {
         if (!FHE.isInitialized(oldValue)) {
             if (!FHE.isInitialized(delta)) {
-                return (FHE.asEbool(true), oldValue);
+                return (ebool(true), oldValue);
             }
-            return (FHE.eq(delta, FHE.asEuint64(0)), FHE.asEuint64(0));
+            return (delta == euint64(0), euint64(0));
         }
-        success = FHE.gte(oldValue, delta);
-        updated = FHE.select(success, FHE.sub(oldValue, delta), oldValue);
+        success = oldValue >= delta;
+        updated = success ? oldValue - delta : oldValue;
     }
 
     /**
@@ -49,8 +49,8 @@ library FHESafeMath {
      *
      * Same semantics as {tryDecrease} — on failure `balance` is left untouched, never partially
      * drained — but one FHE op cheaper for the transfer pattern: selecting the delta first lets a
-     * single `FHE.sub` stand in for {tryDecrease}'s `FHE.sub` + `FHE.select` pair, and the caller's
-     * own `FHE.select` disappears. `spent` is always an initialized, caller-owned handle, so it is
+     * single subtraction stand in for {tryDecrease}'s subtract-then-select pair, and the caller's
+     * own select disappears. `spent` is always an initialized, caller-owned handle, so it is
      * safe to `FHE.allow` and to feed into further FHE ops.
      */
     function trySpend(
@@ -60,15 +60,15 @@ library FHESafeMath {
         if (!FHE.isInitialized(balance)) {
             // Nothing to spend from: the debit can only succeed for a zero `amount`, and either
             // way both outputs are 0. One trivially-encrypted zero serves as all three handles.
-            euint64 zero = FHE.asEuint64(0);
-            if (!FHE.isInitialized(amount)) return (FHE.asEbool(true), zero, zero);
-            return (FHE.eq(amount, zero), zero, zero);
+            euint64 zero = euint64(0);
+            if (!FHE.isInitialized(amount)) return (ebool(true), zero, zero);
+            return (amount == zero, zero, zero);
         }
 
-        success = FHE.gte(balance, amount);
-        spent = FHE.select(success, amount, FHE.asEuint64(0));
+        success = balance >= amount;
+        spent = success ? amount : euint64(0);
         // `spent` is `amount` only when it fits, 0 otherwise, so this can never underflow.
-        updated = FHE.sub(balance, spent);
+        updated = balance - spent;
     }
 
     /**
@@ -77,15 +77,15 @@ library FHESafeMath {
      */
     function tryAdd(euint64 a, euint64 b) internal returns (ebool success, euint64 res) {
         if (!FHE.isInitialized(a)) {
-            return (FHE.asEbool(true), b);
+            return (ebool(true), b);
         }
         if (!FHE.isInitialized(b)) {
-            return (FHE.asEbool(true), a);
+            return (ebool(true), a);
         }
 
-        euint64 sum = FHE.add(a, b);
-        success = FHE.gte(sum, a);
-        res = FHE.select(success, sum, FHE.asEuint64(0));
+        euint64 sum = a + b;
+        success = sum >= a;
+        res = success ? sum : euint64(0);
     }
 
     /**
@@ -94,11 +94,11 @@ library FHESafeMath {
      */
     function trySub(euint64 a, euint64 b) internal returns (ebool success, euint64 res) {
         if (!FHE.isInitialized(b)) {
-            return (FHE.asEbool(true), a);
+            return (ebool(true), a);
         }
 
-        euint64 difference = FHE.sub(a, b);
-        success = FHE.lte(difference, a);
-        res = FHE.select(success, difference, FHE.asEuint64(0));
+        euint64 difference = a - b;
+        success = difference <= a;
+        res = success ? difference : euint64(0);
     }
 }

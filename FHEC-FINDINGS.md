@@ -267,3 +267,47 @@ and it should stay true.
 - **Suggested fix:** extend the dedupe window to treat `slot = local;` as making
   a preceding grant on `local` equivalent to a grant on `slot`, when `local` is
   not reassigned in between. This is the single most common CoFHE idiom.
+
+### POSITIVE: `FHESafeMath` lowers to byte-identical hand-written Solidity
+
+- **Where:** `contracts/utils/FHESafeMath.fsol` (Phase 2 pilot)
+- **Result:** 8 `FHE.select`, 4 `FHE.add`/`FHE.sub`, 5 comparisons and 9
+  `FHE.as*` casts rewritten as operators, ternaries and cast sugar. The
+  generated Solidity is **byte-identical** to the 104-line hand-written
+  original, apart from two doc-comment lines I reworded myself.
+- **Numbers:** `FHE.*` call sites 44 → 11 (the 11 left are `FHE.isInitialized`,
+  which has no sugar). Line count unchanged at 104 — the win is density, not
+  length. All 254 tests pass.
+- **Reads well:** `updated = success ? oldValue - delta : oldValue;` against
+  `updated = FHE.select(success, FHE.sub(oldValue, delta), oldValue);`.
+- **Worth keeping:** a plaintext `if (!FHE.isInitialized(x)) return ...;` guard
+  next to encrypted operators is handled correctly — the plaintext condition is
+  left alone and the `return` inside it is not treated as an encrypted-branch
+  violation. That mix is everywhere in this codebase and it just worked.
+
+### FHE4001 and FHE4010 fire on the same line and contradict each other
+
+- **Where:** `ERC20ConfidentialLib.fsol:140` and `:150`,
+  `FHERC20Core.fsol:386` and `:399`
+- **Severity:** friction
+- **Expected:** one verdict per site.
+- **Got:** two, in sequence, saying opposite things:
+  ```
+  warning[FHE4001]: encrypted write to `$._confidentialBalances[to]` is keyed by
+    an address that is not `msg.sender`; the transaction sender gains read
+    access to a ciphertext filed under another address
+  note[FHE4010]: ACL suggestion: after this write, add
+    `FHE.allowThis($._confidentialBalances[to]); FHE.allowSender($._confidentialBalances[to]);`
+  ```
+  The warning says the grant leaks. The note tells me to add the grant that
+  leaks. A reader following the notes top-to-bottom writes the bug the line
+  above warned about.
+- **Repro:** `acl.mode = "suggest"` plus any `mapping(address => euintN)` write
+  keyed by something other than `msg.sender`.
+- **Workaround:** ignore FHE4010 wherever FHE4001 also fires.
+- **Suggested fix:** when FHE4001 applies to a site, suppress the FHE4010 note
+  or reduce it to `FHE.allowThis(...)` only, and say why the `allowSender` half
+  was withheld. Related to the `insert`-mode blocker above: the same rule is
+  wrong in both modes, it is just louder in `insert`.
+- **Cosmetic:** the two diagnostics underline different spans of the same
+  statement (`^^^` stops before `= ptr;` on FHE4001, covers it on FHE4010).

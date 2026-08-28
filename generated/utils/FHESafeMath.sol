@@ -49,8 +49,8 @@ library FHESafeMath {
      *
      * Same semantics as {tryDecrease} — on failure `balance` is left untouched, never partially
      * drained — but one FHE op cheaper for the transfer pattern: selecting the delta first lets a
-     * single `FHE.sub` stand in for {tryDecrease}'s `FHE.sub` + `FHE.select` pair, and the caller's
-     * own `FHE.select` disappears. `spent` is always an initialized, caller-owned handle, so it is
+     * single subtraction stand in for {tryDecrease}'s subtract-then-select pair, and the caller's
+     * own select disappears. `spent` is always an initialized, caller-owned handle, so it is
      * safe to `FHE.allow` and to feed into further FHE ops.
      */
     function trySpend(
