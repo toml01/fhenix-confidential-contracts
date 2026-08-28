@@ -21,9 +21,9 @@ import "@nomicfoundation/hardhat-verify";
 import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 import "@cofhe/hardhat-plugin";
-// Transpiles .fsol -> generated/ before compile, and remaps solc errors back to
-// the .fsol source. It also repoints `paths.sources` at `generated/`, which is
-// why every fully-qualified contract name below carries that prefix.
+// Transpiles .fsol -> generated/ before compile, remaps solc errors back to the
+// .fsol source, and translates .fsol paths in fully-qualified names and library
+// link keys, so both this config and the tests name the files you actually edit.
 import "@fhec/hardhat-plugin";
 
 // If not set, it uses ours Alchemy's default API key.
@@ -79,9 +79,10 @@ const config: HardhatUserConfig = {
       // selector, so a stale link fails at runtime rather than at link time. The 0.8.26 /
       // runs:1 / cancun pin is retained so that this version is itself reproducible. Consumers
       // link by address, so their own bytecode is unaffected by these settings.
-      // NOTE: `generated/`, not `contracts/` — @fhec/hardhat-plugin repoints
-      // `paths.sources` at the transpiler output, which renames every source.
-      "generated/ERC20Confidential/ERC20ConfidentialLib.sol": {
+      // Keyed by the .fsol source you actually edit. @fhec/hardhat-plugin repoints
+      // `paths.sources` at `generated/` and translates this key back (fhec #68/#76).
+      // Verified: this job still compiles at solc 0.8.26 / runs:1.
+      "contracts/ERC20Confidential/ERC20ConfidentialLib.fsol": {
         version: "0.8.26",
         settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 1 } },
       },

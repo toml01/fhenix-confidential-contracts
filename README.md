@@ -68,6 +68,10 @@ a single-assignment `if/else` lowers to one `FHE.select`, so the readable form
 costs nothing. The two remaining ternaries are in argument position, where an
 `if` cannot go.
 
+Nothing outside `generated/` refers to that directory: tests, the deploy script
+and `solidity.overrides` all name the `.fsol` file, which the plugin translates
+(fhec #68 and #76).
+
 **Transpiled output** says whether the Solidity `fhec` generates is identical to
 upstream, ignoring comments. `identical` means the port is provably
 behaviour-preserving for that file — 35 of 42 are. **changed** means the `in` /

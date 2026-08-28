@@ -13,7 +13,7 @@ import { ConfidentialHarness } from "../typechain-types";
 // Exercised through ConfidentialHarness, whose stand-in ledger is fixed at 6 public decimals
 // (the same shape as a 6-decimal production host), against the real Core + ERC20ConfidentialLib
 // delegatecall path.
-const LIB_FQN = "generated/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
+const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.fsol:ERC20ConfidentialLib";
 
 describe("confidential decimals / conversion rate", function () {
   async function deployHarness(confidentialDecimals: number): Promise<ConfidentialHarness> {

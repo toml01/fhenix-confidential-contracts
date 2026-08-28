@@ -1,7 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 
-const LIB_FQN = "generated/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib";
+const LIB_FQN = "contracts/ERC20Confidential/ERC20ConfidentialLib.fsol:ERC20ConfidentialLib";
 
 /**
  * Deploys AND VERIFIES ERC20ConfidentialLib - the shared confidential engine.
@@ -38,7 +38,7 @@ const LIB_FQN = "generated/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20Confi
  *
  *   // plain ethers style (tests / scripts):
  *   const factory = await ethers.getContractFactory("MyConfidentialToken", {
- *     libraries: { "generated/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib": lib.address },
+ *     libraries: { "contracts/ERC20Confidential/ERC20ConfidentialLib.fsol:ERC20ConfidentialLib": lib.address },
  *   });
  *
  *   // OZ upgrades plugin (upgradeable tokens):
