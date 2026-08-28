@@ -660,3 +660,44 @@ and it should stay true.
 - **Workaround:** name the return parameter, or bind to a local.
 - **Suggested fix:** derive the call's type from the return *type*, not the
   return *declaration*.
+
+---
+
+# Round 2 — after the fhec fixes
+
+All 14 findings from round 1 were fixed in fhec PRs #62–#68. This section
+records what the port could then delete, and what is still open.
+
+## What the fixes bought
+
+| Fix | Effect on this repo |
+|---|---|
+| FHE2007 tuple assignment (#63) | 4 expressions returned to operator form: `transferred = success ? amount : euint64(0);`, `ptr = $._totalSupply - transferred;`, `ptr = $._balances[to] + transferred;`, and the same add in `ERC20ConfidentialLib`. |
+| Out-of-unit base typing (#67) | 7 local-binding workarounds deleted. `shield`, both `unshield` overloads in each wrapper core, and both `unshield` entrypoints in `ERC20ConfidentialCoreUpgradeable` are one-line `return _mint(...)` / `return _unshield(...)` again. |
+| Unnamed return (#67) | Included above — `_unshield` returns an unnamed `euint64` and now needs no workaround. |
+| R1 sender grant (#65) | `acl.mode = "insert"` no longer writes `FHE.allowSender` on account-keyed balances. The confidentiality leak is gone. |
+| Readable build output (#64) | `fhec check` prints its summary by default. FHE6000 warnings dropped from 5 to 2; the four OpenZeppelin ones are suppressed. |
+| Interface ABI names (#66) | Bodiless declarations keep the author's parameter name, so the sugar is now safe to use in a published interface. |
+
+Net: **11 workarounds removed**, rewrite sites 100 → 105, still 254 of 254
+passing, and `ERC20ConfidentialLib` still compiles to the same bytecode hash.
+
+## Still open — tracked as issues on `toml01/fhec`
+
+New findings go straight to the fhec issue tracker, not into this file.
+
+| Issue | Title | Effect here |
+|---|---|---|
+| [#70](https://github.com/toml01/fhec/issues/70) | R1 still guesses `allowSender` on a global aggregate | The only thing keeping this repo on `acl.mode = "suggest"`. |
+| [#71](https://github.com/toml01/fhec/issues/71) | A `.fsol` fully-qualified name is rejected as a library link key | 13 FQN sites stay on the `generated/*.sol` spelling. |
+| [#72](https://github.com/toml01/fhec/issues/72) | Appended `inputProof` breaks formatting on a multiline parameter list | 4 public entrypoints emit `\n    , bytes memory inputProof)`. |
+| [#73](https://github.com/toml01/fhec/issues/73) | `if/else` with one assignment per arm could lower to a single `select` | `FHESafeMath` keeps ternaries where `if` would read better. |
+
+## Round 1 findings — all fixed
+
+The 14 findings logged below were all fixed in fhec PRs #62–#68. They are kept
+as the record of what the port found, and as a regression corpus. Nothing below
+is outstanding.
+
+---
+

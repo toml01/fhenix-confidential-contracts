@@ -102,8 +102,13 @@ hitters map straight onto `.fsol` features:
 ## Report fhec friction — required
 
 This fork exists to improve `fhec`. Every agent that touches a `.fsol` file
-**must** append what went wrong to `FHEC-FINDINGS.md` at the repo root. Log it
-even when you found a workaround — especially then.
+**must** report what went wrong. Report it even when you found a workaround —
+especially then.
+
+**Open an issue on `toml01/fhec` directly** (`gh issue create -R toml01/fhec`).
+Do not add new entries to `FHEC-FINDINGS.md`; that file is now the record of
+round 1 plus an index of open issues. Search the tracker first and comment on an
+existing issue rather than filing a duplicate.
 
 Log all of these:
 
@@ -115,19 +120,16 @@ Log all of these:
 - A missing feature that forced you back to raw `FHE.*` calls.
 - Documentation that was absent, wrong, or hard to find.
 
-Use one entry per issue, in this shape:
+One issue per problem. Give it: where it bit (file and line), what you
+expected, what you got with the exact diagnostic text, **the smallest `.fsol`
+snippet that reproduces it**, the workaround you used, and a suggested fix.
+Narrow the repro before filing — a two-contract minimal case is worth more than
+a paragraph of description.
 
-```markdown
-### <short title>
-- **Where:** contracts/path/File.fsol:LINE
-- **Severity:** blocker | friction | polish
-- **Expected:** …
-- **Got:** …
-- **Repro:** the smallest `.fsol` snippet that shows it
-- **Workaround:** … (or "none")
-```
+Then add a row to the issue table in `FHEC-FINDINGS.md` so the port records what
+it is still working around.
 
-Do not fix `fhec` from this repo. Record the finding and continue the port.
+Do not fix `fhec` from this repo. File the issue and continue the port.
 
 ## Rules for delegated agents
 
@@ -135,7 +137,7 @@ Do not fix `fhec` from this repo. Record the finding and continue the port.
 - Run the test suite before you finish.
 - Commit all your work. Never push.
 - Report what you did and what you did not do in your final message.
-- Append every `fhec` problem to `FHEC-FINDINGS.md` before you finish.
+- File every `fhec` problem as an issue on `toml01/fhec` before you finish.
 
 ## Style and git rules
 

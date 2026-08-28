@@ -21,13 +21,14 @@ version = "0.2.x"
 [acl]
 # "suggest", not the default "insert".
 #
-# This repo has a deliberate, account-directed ACL policy: a balance ciphertext
-# is granted to its OWNER (`FHE.allow(ptr, from)`), never to `msg.sender`, who
-# in an operator transfer is a third party. Rule R1 appends
-# `FHE.allowSender(<slot>)` after every encrypted storage write, which would
-# hand that third party read access to another account's balance and to the
-# total supply. fhec warns about it (FHE4001) and then inserts it anyway.
+# fhec no longer guesses `FHE.allowSender` on a mapping slot keyed by an address
+# other than `msg.sender` (fixed in fhec #65), so the balance leak that first
+# forced this setting is gone. One narrower case remains: R1 still adds
+# `FHE.allowSender($._totalSupply)` on mint and burn. Total supply is a global
+# aggregate that no caller owns, and the hand-written code deliberately grants
+# only `FHE.allowThis` there.
 #
-# "suggest" reports the same sites as FHE4010-FHE4012 notes and writes nothing.
-# See FHEC-FINDINGS.md, "default acl.mode = insert injects a confidentiality leak".
+# This repo has a deliberate, account-directed ACL policy, so it keeps writing
+# its own grants. "suggest" reports the same sites as notes and writes nothing.
+# See FHEC-FINDINGS.md.
 mode = "suggest"
