@@ -16,19 +16,80 @@ Severity:
 
 ---
 
-## Open questions
+## Result
 
-Things to confirm before or during the port. Move each one into the log below
-once it becomes a real finding, or delete it once answered.
+The whole repo is ported. 42 files, all `.fsol`, `fhec check` clean, 100 rewrite
+sites, **254 of 254 tests passing** at every phase boundary.
 
-- Can `solidity.overrides` still pin one file to solc 0.8.26 / `runs: 1` after
-  transpiling? `ERC20ConfidentialLib` must stay bytecode-reproducible.
-- Does the transpiler pass inline `assembly` blocks through unchanged? All six
-  FHE-bearing files use ERC-7201 storage slots set in assembly.
-- Does it handle `library` definitions, `using … for`, `abstract contract`,
-  multiple inheritance, and file-level custom errors?
-- Does automatic ACL insertion behave inside a `library` whose storage struct
-  arrives by reference?
+| | before | after |
+|---|---|---|
+| `FHE.*` call sites | 195 | 95 (**-51%**) |
+| `FHE.asEuint64` / `asEbool` | 46 | 5 |
+| `FHE.shareEuint64` | 33 | 12 |
+| `FHE.receiveEuint64Param` | 15 | 6 |
+| `FHE.add/sub/gte/lte/eq` | 17 | 3 |
+| `FHE.select` | 8 | 1 |
+| source lines | 3777 | 3778 |
+
+The win is density, not length. Half the FHE boilerplate is gone and the line
+count is flat, which is the right trade: the remaining lines say what they mean.
+
+Four arithmetic sites could not be converted, all blocked by the same FHE2007
+false positive. The 35 `FHE.allow*` calls stay by choice — this repo's ACL policy
+is account-directed and rule R1 is wrong for it.
+
+### Findings by severity
+
+| # | Finding | Severity |
+|---|---|---|
+| 1 | Default `acl.mode = "insert"` injects a confidentiality leak, after warning about it | blocker |
+| 2 | Any out-of-unit base poisons call typing in the whole contract | blocker |
+| 3 | `@fhec/hardhat-plugin` cannot be installed outside the fhec monorepo | blocker |
+| 4 | FHE2007 false positive on tuple destructuring into a pre-declared variable | blocker (per-site) |
+| 5 | FHE1015 blames the type when the real problem is the import | friction |
+| 6 | `shared(...)` rejects a call whose return parameter is unnamed | friction |
+| 7 | `in` / `in shared` rename the ABI parameter | friction |
+| 8 | Renaming `.sol` to `.fsol` breaks every relative import, with no fix-it | friction |
+| 9 | Repointing `paths.sources` to `generated/` renames every artifact FQN | friction |
+| 10 | Encrypted `if` needs a dummy initializer when the target has no pre-value | friction |
+| 11 | R1 dedupe misses the "grant on the local, then store" pattern | friction |
+| 12 | FHE4001 and FHE4010 fire on the same line and contradict each other | friction |
+| 13 | Third-party solc warnings are re-emitted as FHE6000 noise | friction |
+| 14 | `fhec check` succeeds silently | polish |
+
+If only three get fixed, make them 1, 2 and 4. Finding 1 is a correctness and
+safety issue in the default configuration. Finding 2 disables the shared-return
+feature in essentially every real project. Finding 4 forces working code back to
+raw `FHE.*` calls.
+
+### Answered along the way
+
+- **`solidity.overrides` still pins one file after transpiling** — yes, once the
+  key is rewritten to the `generated/` path. `ERC20ConfidentialLib` still builds
+  at solc 0.8.26 / `runs: 1`.
+- **Inline `assembly` passes through unchanged** — yes. All six ERC-7201 storage
+  blocks are untouched.
+- **`library`, `using … for`, `abstract contract`, multiple inheritance, and
+  file-level custom errors** all pass through. `library` and `abstract contract`
+  also accept the sugar.
+- **ACL insertion inside a library taking its storage struct by reference** —
+  the `$` local form (`FHERC20Storage storage $ = _get...();` then `$.x = v;`)
+  is recognised and states R1 facts correctly. This repo never uses the chained
+  `_get...().x = v` form, which reportedly does not.
+
+### The headline result
+
+`fhec build` on the untouched 42-file Solidity tree produced **byte-identical
+output** and 254 passing tests. The no-op guarantee holds on a real codebase
+with inline assembly, ERC-7201 namespaced storage, two external libraries,
+`using … for`, multiple inheritance, and file-level custom errors.
+
+`ERC20ConfidentialLib` is the sharper version of the same result: it is pinned
+to solc 0.8.26 / `runs: 1` because it deploys once per chain and is linked by
+address. After porting it, the generated Solidity is byte-identical to the
+original and **its compiled bytecode hash is unchanged** — so the dialect was
+adopted in a bytecode-frozen contract with no redeploy and no re-verification.
+That is a strong argument for adoption, and it is worth a fixture.
 
 ---
 

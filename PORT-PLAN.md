@@ -1,5 +1,22 @@
 # `.fsol` port plan
 
+**STATUS: complete.** All ten phases done. 42 files ported, `fhec check` clean,
+254 of 254 tests passing. Results and the ranked findings are in
+`FHEC-FINDINGS.md`.
+
+Two deviations from the plan as written, both forced and both recorded as
+findings:
+
+- **Phase 4 lost its third commit.** The plan had a step to delete the
+  hand-written `FHE.allow*` calls and let `--acl=insert` place them. That
+  step is wrong for this repo — rule R1 appends `FHE.allowSender` to
+  account-keyed slots, which leaks a balance to an operator. `acl.mode` is
+  set to `suggest` and all 35 ACL calls stay hand-written.
+- **Phase 8 was done without moving the bytecode.** Rather than treat the
+  pinned library as a new version, only transformations that generate
+  byte-identical Solidity were applied. The compiled bytecode hash is
+  unchanged, so no redeploy and no re-verification is needed.
+
 Goal: move every contract in this repo from Solidity + raw `FHE.*` calls to
 `.fsol`, compiled by `fhec`. Second goal, and the more important one: find every
 weak point of `fhec` on the way and record it in `FHEC-FINDINGS.md`.
