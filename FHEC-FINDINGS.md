@@ -691,7 +691,8 @@ New findings go straight to the fhec issue tracker, not into this file.
 | [#70](https://github.com/toml01/fhec/issues/70) | R1 still guesses `allowSender` on a global aggregate | The only thing keeping this repo on `acl.mode = "suggest"`. |
 | [#71](https://github.com/toml01/fhec/issues/71) | A `.fsol` fully-qualified name is rejected as a library link key | 13 FQN sites stay on the `generated/*.sol` spelling. |
 | [#72](https://github.com/toml01/fhec/issues/72) | Appended `inputProof` breaks formatting on a multiline parameter list | 4 public entrypoints emit `\n    , bytes memory inputProof)`. |
-| [#73](https://github.com/toml01/fhec/issues/73) | `if/else` with one assignment per arm could lower to a single `select` | `FHESafeMath` keeps ternaries where `if` would read better. |
+| [#73](https://github.com/toml01/fhec/issues/73) ✅ | `if/else` with one assignment per arm could lower to a single `select` | **Fixed (#77).** All 5 encrypted branches now written as `if`/`else`; output unchanged. |
+| [#82](https://github.com/toml01/fhec/issues/82) | An unassigned encrypted named return is not diagnosed | No live break — `FHESafeMath` assigns `success` everywhere. Found by probing a style change. |
 
 ## Round 1 findings — all fixed
 
