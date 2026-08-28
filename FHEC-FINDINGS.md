@@ -490,3 +490,88 @@ and it should stay true.
 - **Suggested fix:** treat a tuple assignment as initializing every named
   component of its left-hand side, `(, x, y) = f()` included. Case B already
   proves the machinery exists; it just is not wired to the assignment form.
+
+### BLOCKER: a `shared(...)` return rejects any call into a contract that inherits from node_modules
+
+- **Where:** `contracts/FHERC20/extensions/FHERC20ERC20WrapperCore.fsol:102, 113, 128`
+- **Severity:** blocker — this one will hit almost every real Solidity project
+- **Expected:** `return _mint(to, amount);` in a `shared(msg.sender) euint64`
+  function, where `_mint` is declared `internal returns (euint64 transferred)`.
+- **Got:**
+  ```
+  error[FHE2012]: this function shares `euint64`, but the returned expression is
+  of a type the checker cannot prove is that encrypted type
+  ```
+
+- **Minimal repro** — the two contracts are otherwise identical:
+  ```solidity
+  import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+
+  contract CleanBase {
+      function _mint(address to, euint64 a) internal returns (euint64 transferred) { transferred = a; }
+  }
+  contract UsesClean is CleanBase {
+      function f(euint64 a) external returns (shared(msg.sender) euint64) {
+          return _mint(msg.sender, a);          // CLEAN
+      }
+  }
+
+  contract DirtyBase is ReentrancyGuardTransient {   // <-- the only difference
+      function _mint(address to, euint64 a) internal returns (euint64 transferred) { transferred = a; }
+  }
+  contract UsesDirty is DirtyBase {
+      function f(euint64 a) external returns (shared(msg.sender) euint64) {
+          return _mint(msg.sender, a);          // FHE2012
+      }
+  }
+  ```
+  One OpenZeppelin base anywhere in the declaring contract's chain makes every
+  inherited member resolve to `Unknown`, and the shared-return check then
+  refuses it. It is not about the encrypted types at all.
+
+- **Why this is severe:** essentially every production Solidity contract
+  inherits something from `node_modules` — OpenZeppelin, Solmate, an upgradeable
+  base. In this repo `FHERC20Core is IFHERC20, ReentrancyGuardTransient`, so
+  every helper it declares is poisoned for every subclass. The feature works in
+  a self-contained fixture and stops working in a real codebase.
+
+- **Workaround:** bind to a local of declared type first — the declaration wins
+  over the call's `Unknown`:
+  ```solidity
+  euint64 v = _mint(msg.sender, a);
+  return v;
+  ```
+  Applied at all three sites, with a comment. It costs the one-liner the sugar
+  was supposed to buy.
+
+- **Suggested fix:** the return type of a *statically resolved* function should
+  come from its own declaration regardless of whether its contract's base list
+  is complete. Incomplete inheritance should only make *unresolved* names
+  `Unknown`, not members the binder actually found. Failing that, say so in the
+  diagnostic — "cannot prove" gives no hint that an unrelated base import is the
+  cause, and I burned four separate repro rounds finding it.
+
+### `shared(...)` also rejects a call whose return parameter is unnamed
+
+- **Where:** found while narrowing the finding above
+- **Severity:** friction
+- **Expected:** `returns (euint64)` and `returns (euint64 out)` behave the same.
+  In Solidity they do.
+- **Got:** they do not. Same contract, no inheritance involved:
+  ```solidity
+  function unnamed(euint64 a) internal returns (euint64)     { return a; }
+  function named(euint64 a)   internal returns (euint64 out) { out = a; }
+
+  function c1(euint64 a) external returns (shared(msg.sender) euint64) { return unnamed(a); } // FHE2012
+  function c2(euint64 a) external returns (shared(msg.sender) euint64) { return named(a); }   // clean
+  function c3(euint64 a) external returns (shared(msg.sender) euint64) { return a; }          // clean
+  function c4(euint64 a) external returns (shared(msg.sender) euint64) {
+      euint64 v = unnamed(a); return v;                                                        // clean
+  }
+  ```
+  This is what `_unshield(...) internal virtual returns (euint64)` hit in this
+  repo. Whether a return parameter is named is a pure style choice with no
+  semantic content, so it should not decide whether a feature compiles.
+- **Workaround:** name the return parameter, or bind to a local.
+- **Suggested fix:** derive the call's type from the return *type*, not the
+  return *declaration*.
