@@ -702,7 +702,7 @@ the policy rather than a change to it. See `fhec.toml`.
 | [#71](https://github.com/toml01/fhec/issues/71) ✅ | A `.fsol` fully-qualified name is rejected as a library link key | **Fixed (#76).** All 13 FQN sites and the `solidity.overrides` key now name the `.fsol` file; `generated/` no longer appears in any config or test. |
 | [#72](https://github.com/toml01/fhec/issues/72) ✅ | Appended `inputProof` breaks formatting on a multiline parameter list | **Fixed (#74).** All 4 entrypoints now render normally. |
 | [#73](https://github.com/toml01/fhec/issues/73) ✅ | `if/else` with one assignment per arm could lower to a single `select` | **Fixed (#77).** All 5 encrypted branches now written as `if`/`else`; output unchanged. |
-| [#82](https://github.com/toml01/fhec/issues/82) | An unassigned encrypted named return is not diagnosed | No live break — `FHESafeMath` assigns `success` everywhere. Found by probing a style change. |
+| [#82](https://github.com/toml01/fhec/issues/82) ✅ | An unassigned encrypted named return is not diagnosed | **Fixed (#83).** Verified: the true positive fires, and the two shapes this repo uses (explicit-return, and assign-then-fall-off-end) stay clean. |
 
 ## Round 1 findings — all fixed
 
