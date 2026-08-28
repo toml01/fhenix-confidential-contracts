@@ -690,7 +690,15 @@ New findings go straight to the fhec issue tracker, not into this file.
 |---|---|---|
 | [#70](https://github.com/toml01/fhec/issues/70) ✅ | R1 still guesses `allowSender` on a global aggregate | **Fixed (#81).** `insert` no longer guesses a sender grant anywhere. |
 | [#85](https://github.com/toml01/fhec/issues/85) ✅ | R1 inserts a redundant `allowThis` after `allowPublic`/`allowGlobal` | **Fixed (#86).** |
-| [#88](https://github.com/toml01/fhec/issues/88) | R3 fires on a public library function, where the return has no external caller | The last site between this repo and `acl.mode = "insert"`. Bytecode objection, not a safety one. |
+| [#88](https://github.com/toml01/fhec/issues/88) ✅ | R3 fires on a public library function, where the return has no external caller | **Fixed (#89).** `insert` now adds nothing to any shipped contract. |
+
+**ACL: resolved.** With #65, #81, #86 and #89 in, `acl.mode = "insert"` produces a
+byte-identical tree for every shipped contract — fhec agrees with this repo's
+hand-written policy everywhere. The repo still keeps `suggest`, because 22 of its
+35 grants (`FHE.allow(handle, owner)`, `allowPublic`, `allowGlobal`) are ones
+spec 8.5 says fhec must never auto-emit, and relocating the other 13 would move
+the pinned library's bytecode. Running `insert` and diffing is now a *check* on
+the policy rather than a change to it. See `fhec.toml`.
 | [#71](https://github.com/toml01/fhec/issues/71) ✅ | A `.fsol` fully-qualified name is rejected as a library link key | **Fixed (#76).** All 13 FQN sites and the `solidity.overrides` key now name the `.fsol` file; `generated/` no longer appears in any config or test. |
 | [#72](https://github.com/toml01/fhec/issues/72) ✅ | Appended `inputProof` breaks formatting on a multiline parameter list | **Fixed (#74).** All 4 entrypoints now render normally. |
 | [#73](https://github.com/toml01/fhec/issues/73) ✅ | `if/else` with one assignment per arm could lower to a single `select` | **Fixed (#77).** All 5 encrypted branches now written as `if`/`else`; output unchanged. |

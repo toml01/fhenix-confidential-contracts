@@ -21,16 +21,22 @@ version = "0.2.x"
 [acl]
 # "suggest", not the default "insert".
 #
-# The safety objections are gone (fhec #65, #81) and the redundant-grant one too
-# (#86). Everything `insert` writes today is safe, and it now reproduces this
-# repo's hand-written policy everywhere except one site.
+# Not because `insert` is unsafe any more — it is not. After fhec #65, #81, #86
+# and #89, running this repo with `acl.mode = "insert"` adds **nothing** to any
+# shipped contract: the generated tree is byte-identical to the one built here,
+# `ERC20ConfidentialLib` included. fhec now agrees with this repo's hand-written
+# ACL policy at every site. Re-running with `insert` and diffing is a useful way
+# to verify that policy still matches what the compiler would do.
 #
-# That site is `ERC20ConfidentialLib.unshieldChecked`, where rule R3 hoists the
-# return and adds `FHE.allowTransient(_, msg.sender)`. The library is
-# delegatecall-linked and bytecode-pinned, and its only caller already shares the
-# value, so the grant is redundant but would force a redeploy and a relink of
-# every host. Tracked as fhec #88.
+# The reason to stay on "suggest" is that most of the policy cannot be generated
+# at all. Of 35 grants: 12 are `FHE.allow(handle, account)` directed at the
+# ACCOUNT OWNER, 6 are `allowPublic`, 4 are `allowGlobal` — and spec 8.5 says
+# fhec never auto-emits any of those. Only the 13 `allowThis` calls are in R1's
+# reach, and deleting them would have R1 re-insert equivalent grants in a
+# different place (after the storage write, keyed by the slot, rather than
+# before it on the local). That is behaviour-preserving but not byte-identical,
+# and it would move the pinned library's bytecode.
 #
-# `acl.mode` is global, so one library site keeps the whole repo on "suggest".
-# When #88 lands, switch to "insert" and delete the 35 manual FHE.allow* calls.
+# So the grants stay written by hand, and "suggest" reports without touching
+# them. This is the end state, not a workaround.
 mode = "suggest"
