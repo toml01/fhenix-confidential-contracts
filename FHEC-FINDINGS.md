@@ -311,3 +311,115 @@ and it should stay true.
   wrong in both modes, it is just louder in `insert`.
 - **Cosmetic:** the two diagnostics underline different spans of the same
   statement (`^^^` stops before `= ptr;` on FHE4001, covers it on FHE4010).
+
+### Encrypted `if` needs a dummy initializer when the target has no pre-value
+
+- **Where:** `contracts/utils/FHESafeMath.fsol` — `trySub`, `tryAdd`, `trySpend`
+- **Severity:** friction
+- **Expected:** `if (cond) { res = x; }` on a named return to lower to
+  `res = FHE.select(cond, x, <zero>)`.
+- **Got:** the merge always selects against the *pre-value* of the target, so a
+  target that was never assigned needs a hand-written initializer first:
+  ```solidity
+  res = euint64(0);        // <- required, purely to feed the untaken branch
+  if (success) { res = difference; }
+  ```
+  which lowers to a trivial-encrypt plus three temps:
+  ```solidity
+  res = FHE.asEuint64(0);
+  {
+      ebool __fhe_cond_0 = success;
+      euint64 __fhe_pre_1 = res;
+      euint64 __fhe_then_2;
+      { __fhe_then_2 = difference; }
+      res = FHE.select(__fhe_cond_0, __fhe_then_2, __fhe_pre_1);
+  }
+  ```
+  against the ternary's single `res = FHE.select(success, difference, FHE.asEuint64(0));`.
+  Without the initializer it is FHE2007. So the "natural control flow" pitch
+  costs an extra FHE op and 8 lines of generated code exactly where the author
+  has no pre-value to merge against.
+- **Repro:** any `if (encryptedCond) { namedReturn = x; }` with no prior write.
+- **Workaround:** use the ternary for produce-a-fresh-value shapes; keep `if`
+  for in-place updates, where the pre-value is real and wanted.
+- **Also tried, also refused:** writing both arms so the pre-value is provably
+  dead still fails, which is the sharper half of this finding:
+  ```solidity
+  if (success) { res = difference; } else { res = euint64(0); }
+  ```
+  ```
+  error[FHE2007]: this write inside an encrypted branch merges with the
+  variable's previous value, which is possibly uninitialized; assign the
+  variable before the `if`
+    --> utils/FHESafeMath.fsol:103:13
+  ```
+  Every path through the `if/else` assigns `res`, so no merge with the previous
+  value is needed at all — the lowering could emit
+  `res = FHE.select(cond, difference, FHE.asEuint64(0))` directly. The checker
+  appears to test initialization per-write rather than after the whole
+  statement, so the one form that needs no initializer is the one it rejects.
+- **Suggested fix:** when an `if/else` assigns the same target on both arms,
+  merge the two branch values and skip the pre-value entirely — no initializer,
+  no `__fhe_pre` temp, one `select`. That makes `if/else` exactly as good as the
+  ternary and lets a codebase use one style throughout. The current advice in
+  the error text ("assign the variable before the `if`") pushes the author into
+  the extra FHE op instead.
+
+### FHE1015 blames the type when the real problem is the import
+
+- **Where:** `contracts/interfaces/IERC7984Receiver.fsol:34`
+- **Severity:** friction — high time-cost, the message points away from the fix
+- **Expected:** either acceptance, or a message naming the actual problem.
+- **Got:**
+  ```
+  error[FHE1015]: `in shared` must be followed by an encrypted type
+                  (ebool, euint8..euint128, eaddress)
+    --> interfaces/IERC7984Receiver.fsol:34:19
+     |
+  34 |         in shared euint64 amount,
+     |                   ^^^^^^^
+  ```
+  **`euint64` is in the list the message prints.** The real cause is that this
+  file imports only the wire types it used before:
+  ```solidity
+  import { sharedEbool, sharedEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+  ```
+  `euint64` is not in scope, so it does not resolve through the trusted profile
+  import and types as `Unknown`. Adding `ebool, euint64` to that import fixes it
+  instantly. Nothing in the diagnostic hints at scope or imports.
+
+  This is a likely first contact with the shared sugar: you reach for `in shared`
+  precisely in the files that previously only needed the `shared*` types, which
+  are exactly the files whose imports lack the plain ones.
+- **Repro:** a file importing only `sharedEuint64`, using `in shared euint64 x`.
+- **Workaround:** add the plain type to the import.
+- **Suggested fix:** when the token after `in shared` / `shared(...)` names a
+  profile type that is not in scope, say so — "`euint64` is not in scope; add it
+  to the import from `@fhenixprotocol/cofhe-contracts/FHE.sol`" — with a
+  `safe: true` fix-it that extends the import. Keep the current wording only for
+  a genuinely non-encrypted type.
+
+### `in shared` renames the ABI parameter, which is wrong for a published interface
+
+- **Where:** `contracts/interfaces/IERC7984Receiver.fsol`
+- **Severity:** friction
+- **Expected:** on a bodiless interface member the sugar is signature-only, so
+  it should be invisible in the output.
+- **Got:** the parameter is renamed. Source `in shared euint64 amount` emits
+  `sharedEuint64 amount_shared`, and that name reaches the compiled ABI:
+  ```
+  ['operator', 'from', 'amount_shared', 'data']
+  ```
+  The selector is unchanged and the 254 tests still pass, but `IERC7984Receiver`
+  is a published standard interface. Its ABI JSON is what integrators read and
+  what named-argument call sites use. Renaming a documented parameter to a
+  compiler-internal name is not an acceptable cost.
+- **Net effect on interfaces:** the sugar generates no conversion statement on a
+  bodiless declaration, so it buys nothing there and costs a parameter rename.
+- **Repro:** `in shared euint64 amount` in any interface; inspect the artifact ABI.
+- **Workaround:** leave interfaces spelled with the plain `sharedEuint64` types
+  and use the sugar only in implementations, where it actually generates the
+  `FHE.receiveEuint64Param` call. That is what this port does.
+- **Suggested fix:** keep the author's parameter name in the emitted signature
+  and use the internal `_shared` name only for the generated local. The same
+  applies to `in` / `_input`.

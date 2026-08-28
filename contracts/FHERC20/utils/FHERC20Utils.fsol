@@ -52,7 +52,7 @@ library FHERC20Utils {
             }
         } else {
             // No callback to make, so nothing was shared and there is nothing to receive.
-            return FHE.asEbool(true);
+            return ebool(true);
         }
     }
 }
