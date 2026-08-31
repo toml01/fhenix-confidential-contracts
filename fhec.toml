@@ -21,23 +21,21 @@ version = "0.2.x"
 [acl]
 # "insert" — fhec places the ACL grants, the source states the policy.
 #
-# This was "suggest" for most of the port, because R1 could only guess
-# `allowThis`/`allowSender` and 22 of the 35 grants here are owner-directed,
-# public or global — things spec 8.5 says the transpiler must never guess.
-# Reader policies (spec 8.8-8.13, fhec #102) closed that: a policy on the
-# storage declaration states who may read, and R4 generates the grant at every
-# write. See the `@custom:fhe-allow` lines on the ERC-7201 structs in
-# FHERC20Core and ERC20ConfidentialLib.
+# 24 of the original 35 hand-written grants are now generated, from seven
+# `@custom:fhe-allow` policies plus R1. See the policies on the ERC-7201 structs
+# in FHERC20Core and ERC20ConfidentialLib, and on the ConfidentialTransfer,
+# AmountDiscloseRequested and TokensUnshielded events.
 #
-# 16 hand-written grants were deleted this way: 13 at storage writes (R4), and
-# 3 more at the ConfidentialTransfer emit in ERC20ConfidentialLib (R5, a policy
-# on the event parameter).
-#
-# The remaining 19 stay by hand for two reasons. Most sit on locals, parameters
-# and named returns that never land in a policy-able target. Two are blocked:
-# the observer grant on that emit, because an event policy cannot name contract
-# state (FHE4005); and FHERC20Core's emit, because its event is declared in the
-# inherited IERC7984 interface and a policy there is silently ignored — fhec
-# #104. Do not delete those three grants until #104 is fixed: nothing warns, and
-# the test suite still passes without them.
+# 11 remain. One is inherent; the rest are blocked on open fhec issues:
+#   6  fhec #104 — the emit's event is declared in an inherited interface, and a
+#      policy there is SILENTLY ignored. Do not delete these: nothing warns, and
+#      the suite still passes without them.
+#      FHERC20Core (3), FHERC20ERC20WrapperCore (1), FHERC20NativeWrapperCore (1),
+#      and the observer grant these would cover.
+#   1  fhec #105 — an event policy cannot name a state variable, so the
+#      compliance observer grant stays hand-written.
+#   4  fhec #106 — no reader form renders `allowGlobal` (MockFHESafeMath).
+#   1  inherent — ERC20ConfidentialLib.grantPast loops over caller-supplied
+#      handles. A policy describes a declaration, not an imperative backfill.
+#      This one will always be hand-written, and that is correct.
 mode = "insert"
