@@ -83,11 +83,14 @@ hitters map straight onto `.fsol` features:
 
 ## Landmines
 
-- **`ERC20ConfidentialLib` is bytecode-sensitive.** It deploys once per chain
-  and links by address into every consumer. `hardhat.config.ts` pins it to solc
-  0.8.26 / `optimizer.runs: 1` / cancun so the artifact reproduces for explorer
-  verification. Read the comment block above the `overrides` key before you
-  touch it.
+- **`ERC20ConfidentialLib` is bytecode-sensitive, but not frozen.** It deploys
+  once per chain and links by address into every consumer, and
+  `hardhat.config.ts` pins it to solc 0.8.26 / `optimizer.runs: 1` / cancun so
+  the artifact reproduces for explorer verification. Keeping its bytecode hash
+  stable is **a nice-to-have, not a gate** — this fork is a demo of `fhec`, not
+  a production deployment (owner's call, 2026-08-29). Prefer not to move it;
+  say plainly when you do, and why. Read the comment block above the
+  `overrides` key before you touch it.
 - **The library FQN is hardcoded in 11 test files and in
   `deploy/00_deploy_confidential_lib.ts`** as
   `contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib`.

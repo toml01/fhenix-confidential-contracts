@@ -16,6 +16,9 @@ findings:
   pinned library as a new version, only transformations that generate
   byte-identical Solidity were applied. The compiled bytecode hash is
   unchanged, so no redeploy and no re-verification is needed.
+  *(Since 2026-08-29 this is a nice-to-have rather than a constraint — the
+  owner's call is that a moved hash is acceptable for a demo. Still worth
+  keeping where it is free.)*
 
 Goal: move every contract in this repo from Solidity + raw `FHE.*` calls to
 `.fsol`, compiled by `fhec`. Second goal, and the more important one: find every
