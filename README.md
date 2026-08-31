@@ -22,8 +22,9 @@ suite was never modified, so it stayed an honest oracle throughout.
 
 | | before | after |
 |---|---|---|
-| `FHE.*` call sites | 195 | 90 (**−54%**) |
-| `FHE.asEuint64` / `asEbool` | 46 | 5 |
+| `FHE.*` call sites | 195 | 77 (**−61%**) |
+| `FHE.asEuint64` / `asEbool` | 46 | 4 |
+| `FHE.allow*` | 35 | 22 |
 | `FHE.shareEuint64` | 33 | 12 |
 | `FHE.receiveEuint64Param` | 15 | 6 |
 | `FHE.add/sub/gte/lte/eq` | 17 | 0 |
@@ -160,9 +161,13 @@ local `fhec` checkout and points at a locally built binary. See
 *"cannot be installed outside the fhec monorepo"* for the two workarounds, and
 [`fhec.toml`](https://github.com/toml01/fhenix-confidential-contracts/blob/fsol-port/fhec.toml) for the project configuration.
 
-`acl.mode` is set to `suggest`, not the default `insert`. The reason is in
-`fhec.toml` and in finding 1: on an account-keyed balance the default rule grants
-read access to `msg.sender`, who in an operator transfer is a third party.
+`acl.mode` is `insert`: fhec places the ACL grants, and the source states the
+policy. Four `@custom:fhe-allow` lines on the ERC-7201 storage structs say who
+may read each encrypted slot — an account for its own balance, the compliance
+observer alongside it, `public` for the mirrored total supply — and fhec
+generates the grant at every write. That replaced 13 hand-written grants. The
+other 22 sit on locals, parameters and named returns, which a policy cannot
+attach to, so they stay written by hand.
 
 ## Documents
 

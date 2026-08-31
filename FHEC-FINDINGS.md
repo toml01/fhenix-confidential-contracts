@@ -18,25 +18,25 @@ Severity:
 
 ## Result
 
-The whole repo is ported. 42 files, all `.fsol`, `fhec check` clean, 100 rewrite
-sites, **254 of 254 tests passing** at every phase boundary.
+The whole repo is ported and runs on `acl.mode = "insert"`. 42 files, all
+`.fsol`, `fhec check` clean, 105 rewrite sites, **254 of 254 tests passing** at
+every phase boundary.
 
 | | before | after |
 |---|---|---|
-| `FHE.*` call sites | 195 | 95 (**-51%**) |
-| `FHE.asEuint64` / `asEbool` | 46 | 5 |
+| `FHE.*` call sites | 195 | 77 (**-61%**) |
+| `FHE.asEuint64` / `asEbool` | 46 | 4 |
 | `FHE.shareEuint64` | 33 | 12 |
 | `FHE.receiveEuint64Param` | 15 | 6 |
-| `FHE.add/sub/gte/lte/eq` | 17 | 3 |
-| `FHE.select` | 8 | 1 |
-| source lines | 3777 | 3778 |
+| `FHE.add/sub/gte/lte/eq` | 17 | **0** |
+| `FHE.select` | 8 | **0** |
+| `FHE.allow*` | 35 | 22 |
+| source lines | 3777 | 3783 |
 
-The win is density, not length. Half the FHE boilerplate is gone and the line
-count is flat, which is the right trade: the remaining lines say what they mean.
-
-Four arithmetic sites could not be converted, all blocked by the same FHE2007
-false positive. The 35 `FHE.allow*` calls stay by choice — this repo's ACL policy
-is account-directed and rule R1 is wrong for it.
+The win is density, not length. Every arithmetic, comparison and `select` site
+is now an operator or an encrypted `if`; none remain. The 13 ACL grants that
+went are the ones a reader policy can state — the remaining 22 sit on locals,
+parameters and named returns, which a policy cannot attach to.
 
 ### Findings by severity
 
@@ -84,12 +84,17 @@ output** and 254 passing tests. The no-op guarantee holds on a real codebase
 with inline assembly, ERC-7201 namespaced storage, two external libraries,
 `using … for`, multiple inheritance, and file-level custom errors.
 
-`ERC20ConfidentialLib` is the sharper version of the same result: it is pinned
+`ERC20ConfidentialLib` is the sharper version of the same result. It is pinned
 to solc 0.8.26 / `runs: 1` because it deploys once per chain and is linked by
-address. After porting it, the generated Solidity is byte-identical to the
-original and **its compiled bytecode hash is unchanged** — so the dialect was
-adopted in a bytecode-frozen contract with no redeploy and no re-verification.
-That is a strong argument for adoption, and it is worth a fixture.
+address, and **it stayed byte-identical through every phase of the port** — the
+dialect was adopted in a bytecode-frozen contract with no redeploy and no
+re-verification. Worth a fixture.
+
+Its hash moved only at the very end, when reader policies replaced the
+hand-written grants (`6328a384…` → `bd5d48aa…`): the guarded grants are new
+code. That was a deliberate choice once the owner confirmed a demo does not need
+a frozen hash. The storage layout never moved — the only struct edit was naming
+a mapping key, which Solidity treats as documentation.
 
 ---
 
