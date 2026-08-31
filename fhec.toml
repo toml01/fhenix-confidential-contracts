@@ -29,7 +29,15 @@ version = "0.2.x"
 # write. See the `@custom:fhe-allow` lines on the ERC-7201 structs in
 # FHERC20Core and ERC20ConfidentialLib.
 #
-# 13 hand-written grants were deleted this way. The remaining 22 sit on locals,
-# parameters and named returns — values that never land in a storage slot a
-# policy can attach to — so they stay written by hand and always will.
+# 16 hand-written grants were deleted this way: 13 at storage writes (R4), and
+# 3 more at the ConfidentialTransfer emit in ERC20ConfidentialLib (R5, a policy
+# on the event parameter).
+#
+# The remaining 19 stay by hand for two reasons. Most sit on locals, parameters
+# and named returns that never land in a policy-able target. Two are blocked:
+# the observer grant on that emit, because an event policy cannot name contract
+# state (FHE4005); and FHERC20Core's emit, because its event is declared in the
+# inherited IERC7984 interface and a policy there is silently ignored — fhec
+# #104. Do not delete those three grants until #104 is fixed: nothing warns, and
+# the test suite still passes without them.
 mode = "insert"

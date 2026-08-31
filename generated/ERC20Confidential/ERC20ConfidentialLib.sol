@@ -99,6 +99,7 @@ library ERC20ConfidentialLib {
         }
     }
 
+    /// @custom:fhe-allow amount: from, to
     event ConfidentialTransfer(address indexed from, address indexed to, euint64 indexed amount);
     // Signatures (and indexed-ness) must match IERC20ConfidentialCore so the
     // host token's ABI/topics are unchanged when these are emitted via delegatecall.
@@ -159,14 +160,16 @@ library ERC20ConfidentialLib {
             }
         }
 
-        if (from != address(0)) FHE.allow(transferred, from);
-        if (to != address(0)) FHE.allow(transferred, to);
-        FHE.allowThis(transferred);
-        if (obs != address(0)) FHE.allow(transferred, obs);
 
         ERC20ConfidentialIndicator ind = $._indicatorToken;
         if (address(ind) != address(0)) ind.emitConfidentialTransfer(from, to);
 
+        if (obs != address(0)) FHE.allow(transferred, obs);
+        if (FHE.isInitialized(transferred)) {
+            FHE.allowThis(transferred);
+            if (from != address(0)) FHE.allow(transferred, from);
+            if (to != address(0)) FHE.allow(transferred, to);
+        }
         emit ConfidentialTransfer(from, to, transferred);
     }
 

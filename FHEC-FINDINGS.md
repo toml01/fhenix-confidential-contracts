@@ -731,11 +731,26 @@ mapping key **and** a mutable state variable, and fhec emits the
 that such a policy is forward-only — which the library already knew, since it
 carries a `grantPast` for backfilling.
 
-**What could not be delegated, and never will be:** the remaining 22 grants sit
-on locals, parameters and named returns (`transferred`, `burned`,
-`unshieldAmount_`, `encryptedAmount`). A policy attaches to a storage
-declaration, so a value that never lands in a slot has nothing to attach to.
-That is a real and reasonable boundary, not a gap.
+**Event policies (R5) cover more than storage.** A policy on an event parameter
+grants at the `emit`, which reaches values that never touch a storage slot:
+
+| Target | Policy | Replaces |
+|---|---|---|
+| `ERC20ConfidentialLib.ConfidentialTransfer.amount` | `from, to` | `allowThis(transferred)` + `allow(transferred, from/to)` |
+
+**16 grants generated in total; 19 stay by hand.** Most are on locals and named
+returns with no policy-able target (`burned`, `unshieldAmount_`,
+`encryptedAmount`). Two are blocked rather than out of scope:
+
+- The **observer** grant on that same emit. An event policy cannot name contract
+  state — `amount: from, to, _observer` is refused with FHE4005. Loud and
+  arguably correct: an event parameter has no owning struct to take siblings
+  from.
+- **`FHERC20Core`'s emit.** Its `ConfidentialTransfer` is declared in the
+  inherited `IERC7984` interface, and a policy there is **silently ignored** —
+  fhec #104. Deleting the three hand-written grants produced no diagnostic, no
+  generated grant, and 254/254 still passing. Invisible to compiler and tests
+  alike, so those grants stay until #104 lands.
 
 **Bytecode:** `ERC20ConfidentialLib` moved from `6328a384…` to `bd5d48aa…`.
 Expected — the guarded grants are new code. Kept byte-identical for the whole
