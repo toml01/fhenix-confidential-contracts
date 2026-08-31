@@ -22,7 +22,7 @@ contract MockFHESafeMath {
 
     function seedBalance(uint64 value) external {
         _balance = FHE.asEuint64(value);
-        FHE.allowThis(_balance);
+        if (FHE.isInitialized(_balance)) { FHE.allowThis(_balance); }
         FHE.allowGlobal(_balance);
     }
 
@@ -59,16 +59,13 @@ contract MockFHESafeMath {
         spent = sp;
         if (FHE.isInitialized(spent)) { FHE.allowThis(spent); }
 
-        FHE.allowThis(s);
         FHE.allowGlobal(s);
         // `tryDecrease`'s uninitialized-balance/-delta branch can hand back the zero handle; the
         // ACL calls would revert on it, and there is nothing to grant anyway.
         if (FHE.isInitialized(u)) {
-            FHE.allowThis(u);
             FHE.allowGlobal(u);
         }
         if (FHE.isInitialized(sp)) {
-            FHE.allowThis(sp);
             FHE.allowGlobal(sp);
         }
     }
