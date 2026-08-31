@@ -53,8 +53,11 @@ contract MockFHESafeMath {
 
     function _record(ebool s, euint64 u, euint64 sp) private {
         success = s;
+        if (FHE.isInitialized(success)) { FHE.allowThis(success); }
         updated = u;
+        if (FHE.isInitialized(updated)) { FHE.allowThis(updated); }
         spent = sp;
+        if (FHE.isInitialized(spent)) { FHE.allowThis(spent); }
 
         FHE.allowThis(s);
         FHE.allowGlobal(s);

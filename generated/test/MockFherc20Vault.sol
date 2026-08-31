@@ -22,5 +22,9 @@ contract MockFHERC20Vault {
         );
         (, euint64 updated) = FHESafeMath.tryAdd(balances[msg.sender], transferred);
         balances[msg.sender] = updated;
+        if (FHE.isInitialized(balances[msg.sender])) {
+            FHE.allowThis(balances[msg.sender]);
+            FHE.allowSender(balances[msg.sender]);
+        }
     }
 }

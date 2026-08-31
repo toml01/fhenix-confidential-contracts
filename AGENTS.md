@@ -78,7 +78,7 @@ hitters map straight onto `.fsol` features:
 | `FHE.shareEuint64` / `shareEbool` | 38 | `returns (shared(addr) …)` |
 | `FHE.receiveEuint64Param` | 15 | `in shared euint64` parameter |
 | `FHE.select` | 13 | encrypted `if` / ternary |
-| `FHE.allow*` / `isAllowed` | 35 | automatic ACL |
+| `FHE.allow*` / `isAllowed` | 35 | reader policies (`@custom:fhe-allow`) + automatic ACL |
 | `FHE.add/sub/gte/lte/eq` | 19 | operators |
 
 ## Landmines
@@ -99,6 +99,12 @@ hitters map straight onto `.fsol` features:
   them together.
 - **Upgradeable contracts are storage-layout sensitive.** They use namespaced
   storage. Do not let a rewrite reorder a struct field.
+- **The ERC-7201 structs carry reader policies.** `@custom:fhe-allow` lines on
+  `FHERC20Storage` and `ERC20ConfidentialStorage` are what generate the ACL
+  grants at every encrypted storage write (`acl.mode = "insert"`). They are
+  load-bearing, not documentation: delete one and the grants silently stop
+  being emitted. A mapping policy binds its **key name**, so the key must stay
+  named (`mapping(address account => euint64)`).
 - **`contracts/test/` ships nothing.** `package.json` `files` excludes it. It is
   still part of the port, because the test suite compiles it.
 

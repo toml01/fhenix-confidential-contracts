@@ -56,8 +56,13 @@ interface IMintModePolicy {
  */
 library ERC20ConfidentialLib {
     /// @custom:storage-location erc7201:fherc20.storage.ERC20Confidential
+    /// Reader policy (spec 8.8). A confidential balance is readable by the account it is
+    /// filed under, and by the compliance observer when one is set. The mirrored total
+    /// supply is publicly decryptable — its plaintext is derivable from public state.
+    /// @custom:fhe-allow _confidentialBalances: account, _observer
+    /// @custom:fhe-allow _confidentialTotalSupply: public
     struct ERC20ConfidentialStorage {
-        mapping(address => euint64) _confidentialBalances;
+        mapping(address account => euint64) _confidentialBalances;
         mapping(address => mapping(address => uint48)) _operators;
         ERC20ConfidentialIndicator _indicatorToken;
         uint8 _decimals;
@@ -134,20 +139,24 @@ library ERC20ConfidentialLib {
             // `trySpend` hands back the amount it actually debited, so the credit leg below reads
             // it straight off the debit instead of re-deriving it with a second `FHE.select`.
             (, ptr, transferred) = FHESafeMath.trySpend(fromBalance, amount);
-            FHE.allowThis(ptr);
-            FHE.allow(ptr, from);
-            if (obs != address(0)) FHE.allow(ptr, obs);
             $._confidentialBalances[from] = ptr;
+            if (FHE.isInitialized($._confidentialBalances[from])) {
+                FHE.allowThis($._confidentialBalances[from]);
+                if (from != address(0)) FHE.allow($._confidentialBalances[from], from);
+                if ($._observer != address(0)) FHE.allow($._confidentialBalances[from], $._observer);
+            }
         } else {
             transferred = amount; // mint: nothing to debit, so the full amount lands
         }
 
         if (to != address(0)) {
             ptr = FHE.add($._confidentialBalances[to], transferred);
-            FHE.allowThis(ptr);
-            FHE.allow(ptr, to);
-            if (obs != address(0)) FHE.allow(ptr, obs);
             $._confidentialBalances[to] = ptr;
+            if (FHE.isInitialized($._confidentialBalances[to])) {
+                FHE.allowThis($._confidentialBalances[to]);
+                if (to != address(0)) FHE.allow($._confidentialBalances[to], to);
+                if ($._observer != address(0)) FHE.allow($._confidentialBalances[to], $._observer);
+            }
         }
 
         if (from != address(0)) FHE.allow(transferred, from);
@@ -300,8 +309,11 @@ library ERC20ConfidentialLib {
     function syncConfidentialTotalSupply() public {
         ERC20ConfidentialStorage storage $ = _getERC20ConfidentialStorage();
         euint64 supply = FHE.asEuint64(confidentialTotalSupplyPlaintext());
-        FHE.allowPublic(supply);
         $._confidentialTotalSupply = supply;
+        if (FHE.isInitialized($._confidentialTotalSupply)) {
+            FHE.allowThis($._confidentialTotalSupply);
+            FHE.allowPublic($._confidentialTotalSupply);
+        }
     }
 
     /// @dev The confidential total supply as a plaintext — pool balance scaled to confidential

@@ -19,24 +19,17 @@ version = "0.2.x"
 # evm_version = "cancun"
 
 [acl]
-# "suggest", not the default "insert".
+# "insert" — fhec places the ACL grants, the source states the policy.
 #
-# Not because `insert` is unsafe any more — it is not. After fhec #65, #81, #86
-# and #89, running this repo with `acl.mode = "insert"` adds **nothing** to any
-# shipped contract: the generated tree is byte-identical to the one built here,
-# `ERC20ConfidentialLib` included. fhec now agrees with this repo's hand-written
-# ACL policy at every site. Re-running with `insert` and diffing is a useful way
-# to verify that policy still matches what the compiler would do.
+# This was "suggest" for most of the port, because R1 could only guess
+# `allowThis`/`allowSender` and 22 of the 35 grants here are owner-directed,
+# public or global — things spec 8.5 says the transpiler must never guess.
+# Reader policies (spec 8.8-8.13, fhec #102) closed that: a policy on the
+# storage declaration states who may read, and R4 generates the grant at every
+# write. See the `@custom:fhe-allow` lines on the ERC-7201 structs in
+# FHERC20Core and ERC20ConfidentialLib.
 #
-# The reason to stay on "suggest" is that most of the policy cannot be generated
-# at all. Of 35 grants: 12 are `FHE.allow(handle, account)` directed at the
-# ACCOUNT OWNER, 6 are `allowPublic`, 4 are `allowGlobal` — and spec 8.5 says
-# fhec never auto-emits any of those. Only the 13 `allowThis` calls are in R1's
-# reach, and deleting them would have R1 re-insert equivalent grants in a
-# different place (after the storage write, keyed by the slot, rather than
-# before it on the local). That is behaviour-preserving but not byte-identical,
-# and it would move the pinned library's bytecode.
-#
-# So the grants stay written by hand, and "suggest" reports without touching
-# them. This is the end state, not a workaround.
-mode = "suggest"
+# 13 hand-written grants were deleted this way. The remaining 22 sit on locals,
+# parameters and named returns — values that never land in a storage slot a
+# policy can attach to — so they stay written by hand and always will.
+mode = "insert"

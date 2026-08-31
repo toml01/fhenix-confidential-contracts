@@ -704,13 +704,39 @@ New findings go straight to the fhec issue tracker, not into this file.
 | [#85](https://github.com/toml01/fhec/issues/85) ✅ | R1 inserts a redundant `allowThis` after `allowPublic`/`allowGlobal` | **Fixed (#86).** |
 | [#88](https://github.com/toml01/fhec/issues/88) ✅ | R3 fires on a public library function, where the return has no external caller | **Fixed (#89).** `insert` now adds nothing to any shipped contract. |
 
-**ACL: resolved.** With #65, #81, #86 and #89 in, `acl.mode = "insert"` produces a
-byte-identical tree for every shipped contract — fhec agrees with this repo's
-hand-written policy everywhere. The repo still keeps `suggest`, because 22 of its
-35 grants (`FHE.allow(handle, owner)`, `allowPublic`, `allowGlobal`) are ones
-spec 8.5 says fhec must never auto-emit, and relocating the other 13 would move
-the pinned library's bytecode. Running `insert` and diffing is now a *check* on
-the policy rather than a change to it. See `fhec.toml`.
+**ACL: resolved — the repo now runs on `acl.mode = "insert"`.**
+
+The blocker was that 22 of the 35 grants are owner-directed, public or global,
+which spec 8.5 says fhec must never guess. Reader policies (#102, spec
+8.8-8.13) closed it: a `@custom:fhe-allow` line on the storage declaration
+states who may read, and R4 generates the grant at every write.
+
+**13 hand-written grants deleted**, replaced by four policy lines:
+
+| Target | Policy | Replaces |
+|---|---|---|
+| `FHERC20Storage._balances` | `account` | `allowThis` + `allow(ptr, from/to)` at 2 sites |
+| `FHERC20Storage._totalSupply` | `this` | `allowThis` at 2 sites |
+| `ERC20ConfidentialStorage._confidentialBalances` | `account, _observer` | `allowThis` + `allow(ptr, from/to)` + the observer grant at 2 sites |
+| `ERC20ConfidentialStorage._confidentialTotalSupply` | `public` | `allowPublic(supply)` |
+
+The multi-reader case is the interesting one: `account, _observer` resolves a
+mapping key **and** a mutable state variable, and fhec emits the
+`$._observer != address(0)` guard by itself. It also correctly warns (FHE4007)
+that such a policy is forward-only — which the library already knew, since it
+carries a `grantPast` for backfilling.
+
+**What could not be delegated, and never will be:** the remaining 22 grants sit
+on locals, parameters and named returns (`transferred`, `burned`,
+`unshieldAmount_`, `encryptedAmount`). A policy attaches to a storage
+declaration, so a value that never lands in a slot has nothing to attach to.
+That is a real and reasonable boundary, not a gap.
+
+**Bytecode:** `ERC20ConfidentialLib` moved from `6328a384…` to `bd5d48aa…`.
+Expected — the guarded grants are new code. Kept byte-identical for the whole
+port until this point; the owner's call (2026-08-29) is that a moved hash is
+acceptable for a demo. The storage layout is untouched: the only struct edit was
+naming the mapping key, which Solidity treats as documentation.
 | [#71](https://github.com/toml01/fhec/issues/71) ✅ | A `.fsol` fully-qualified name is rejected as a library link key | **Fixed (#76).** All 13 FQN sites and the `solidity.overrides` key now name the `.fsol` file; `generated/` no longer appears in any config or test. |
 | [#72](https://github.com/toml01/fhec/issues/72) ✅ | Appended `inputProof` breaks formatting on a multiline parameter list | **Fixed (#74).** All 4 entrypoints now render normally. |
 | [#73](https://github.com/toml01/fhec/issues/73) ✅ | `if/else` with one assignment per arm could lower to a single `select` | **Fixed (#77).** All 5 encrypted branches now written as `if`/`else`; output unchanged. |

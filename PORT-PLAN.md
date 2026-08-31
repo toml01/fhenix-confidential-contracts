@@ -7,11 +7,13 @@
 Two deviations from the plan as written, both forced and both recorded as
 findings:
 
-- **Phase 4 lost its third commit.** The plan had a step to delete the
-  hand-written `FHE.allow*` calls and let `--acl=insert` place them. That
-  step is wrong for this repo — rule R1 appends `FHE.allowSender` to
-  account-keyed slots, which leaks a balance to an operator. `acl.mode` is
-  set to `suggest` and all 35 ACL calls stay hand-written.
+- **Phase 4's third commit landed late, via a different mechanism.** The plan
+  had a step to delete the hand-written `FHE.allow*` calls and let
+  `--acl=insert` place them. That was wrong as written — R1 could only guess
+  `allowThis`/`allowSender`, and guessing `allowSender` on an account-keyed
+  slot leaks a balance to an operator (fhec #46). It became right once reader
+  policies existed (fhec #102): the repo now runs `acl.mode = "insert"` with
+  four `@custom:fhe-allow` policies, and 13 of the 35 grants are generated.
 - **Phase 8 was done without moving the bytecode.** Rather than treat the
   pinned library as a new version, only transformations that generate
   byte-identical Solidity were applied. The compiled bytecode hash is

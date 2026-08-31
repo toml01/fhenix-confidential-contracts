@@ -34,6 +34,11 @@ import { FHERC20InvalidReceiver, FHERC20InvalidSender, FHERC20UnauthorizedSpende
  */
 abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
     /// @custom:storage-location erc7201:fherc20.storage.FHERC20
+    /// Reader policy (spec 8.8): a balance is readable by the account it is filed under;
+    /// the encrypted total supply is contract-only. fhec generates the grants at every
+    /// write from this, replacing the hand-written pairs that used to follow each store.
+    /// @custom:fhe-allow _balances: account
+    /// @custom:fhe-allow _totalSupply: this
     struct FHERC20Storage {
         mapping(address account => euint64) _balances;
         mapping(address account => mapping(address spender => uint48)) _operators;
@@ -375,8 +380,8 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
         if (from == address(0)) {
             ebool success;
             (success, ptr) = FHESafeMath.tryIncrease($._totalSupply, amount);
-            FHE.allowThis(ptr);
             $._totalSupply = ptr;
+            if (FHE.isInitialized($._totalSupply)) { FHE.allowThis($._totalSupply); }
             $._indicatedTotalSupply = _incrementIndicator($._indicatedTotalSupply);
             transferred = FHE.select(success, amount, FHE.asEuint64(0));
         } else {
@@ -385,22 +390,26 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
             // `trySpend` returns the amount actually debited, so the credit leg below needs no
             // second `FHE.select` on `amount`.
             (, ptr, transferred) = FHESafeMath.trySpend(fromBalance, amount);
-            FHE.allowThis(ptr);
-            FHE.allow(ptr, from);
             $._balances[from] = ptr;
+            if (FHE.isInitialized($._balances[from])) {
+                FHE.allowThis($._balances[from]);
+                if (from != address(0)) FHE.allow($._balances[from], from);
+            }
             $._indicatedBalances[from] = _decrementIndicator($._indicatedBalances[from]);
         }
 
         if (to == address(0)) {
             ptr = FHE.sub($._totalSupply, transferred);
-            FHE.allowThis(ptr);
             $._totalSupply = ptr;
+            if (FHE.isInitialized($._totalSupply)) { FHE.allowThis($._totalSupply); }
             $._indicatedTotalSupply = _decrementIndicator($._indicatedTotalSupply);
         } else {
             ptr = FHE.add($._balances[to], transferred);
-            FHE.allowThis(ptr);
-            FHE.allow(ptr, to);
             $._balances[to] = ptr;
+            if (FHE.isInitialized($._balances[to])) {
+                FHE.allowThis($._balances[to]);
+                if (to != address(0)) FHE.allow($._balances[to], to);
+            }
             $._indicatedBalances[to] = _incrementIndicator($._indicatedBalances[to]);
         }
 
