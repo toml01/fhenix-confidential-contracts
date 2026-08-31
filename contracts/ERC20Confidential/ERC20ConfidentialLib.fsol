@@ -104,6 +104,7 @@ library ERC20ConfidentialLib {
     // Signatures (and indexed-ness) must match IERC20ConfidentialCore so the
     // host token's ABI/topics are unchanged when these are emitted via delegatecall.
     event TokensShielded(address indexed account, uint256 amount);
+    /// @custom:fhe-allow amount: public
     event TokensUnshielded(address indexed account, euint64 indexed amount);
     event UnshieldedTokensClaimed(
         address indexed account,
@@ -258,7 +259,6 @@ library ERC20ConfidentialLib {
 
     function unshield(euint64 amount) public returns (euint64 burned) {
         burned = update(msg.sender, address(0), amount);
-        FHE.allowPublic(burned);
         createClaim(msg.sender, burned);
         emit TokensUnshielded(msg.sender, burned);
     }

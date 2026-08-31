@@ -66,6 +66,7 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
     uint32 private constant _INDICATOR_TRANSFER = 79_840_001;
 
     /// @dev Emitted when an encrypted amount `encryptedAmount` is requested for disclosure by `requester`.
+    /// @custom:fhe-allow encryptedAmount: public
     event AmountDiscloseRequested(euint64 indexed encryptedAmount, address indexed requester);
 
     /**
@@ -306,7 +307,10 @@ abstract contract FHERC20Core is IFHERC20, ReentrancyGuardTransient {
         if (!FHE.isAllowed(encryptedAmount, msg.sender))
             revert FHERC20UnauthorizedUseOfEncryptedAmount(encryptedAmount, msg.sender);
 
-        FHE.allowPublic(encryptedAmount);
+        if (FHE.isInitialized(encryptedAmount)) {
+            FHE.allowThis(encryptedAmount);
+            FHE.allowPublic(encryptedAmount);
+        }
         emit AmountDiscloseRequested(encryptedAmount, msg.sender);
     }
 
