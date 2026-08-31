@@ -16,6 +16,7 @@ import { ebool, euint64, sharedEbool, sharedEuint64, FHE } from "@fhenixprotocol
 ///              reverts, instead of getting an FHE operation performed on it.
 contract SharedAmountReceiver is IERC7984Receiver {
     /// @notice The amount handle unwrapped from the last callback, persisted for inspection.
+    /// @custom:fhe-allow lastAmount: public
     euint64 public lastAmount;
     uint256 public callbackCount;
 
@@ -29,9 +30,11 @@ contract SharedAmountReceiver is IERC7984Receiver {
         euint64 amount = FHE.receiveEuint64Param(amount_shared);
         // A received handle carries transient access only, so persisting it past this
         // transaction requires allowThis on the UNWRAPPED value.
-        FHE.allowThis(amount);
-        FHE.allowPublic(amount);
         lastAmount = amount;
+        if (FHE.isInitialized(lastAmount)) {
+            FHE.allowThis(lastAmount);
+            FHE.allowPublic(lastAmount);
+        }
         callbackCount += 1;
 
         ebool accepted = FHE.asEbool(true);
