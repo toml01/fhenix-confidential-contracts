@@ -155,6 +155,8 @@ library ERC20ConfidentialLib {
         ERC20ConfidentialIndicator ind = $._indicatorToken;
         if (address(ind) != address(0)) ind.emitConfidentialTransfer(from, to);
 
+        // fhec #105/#110: an event policy can name a contract state variable, but this is a
+        // library — `_observer` is an ERC-7201 struct field, so it stays hand-written.
         if (obs != address(0)) FHE.allow(transferred, obs);
         emit ConfidentialTransfer(from, to, transferred);
     }

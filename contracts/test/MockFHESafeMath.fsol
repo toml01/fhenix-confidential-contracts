@@ -14,15 +14,18 @@ import { FHESafeMath } from "../utils/FHESafeMath.fsol";
  *         reached.
  */
 contract MockFHESafeMath {
+    /// @custom:fhe-allow success: global
     ebool public success;
+    /// @custom:fhe-allow updated: global
     euint64 public updated;
+    /// @custom:fhe-allow spent: global
     euint64 public spent;
 
+    /// @custom:fhe-allow _balance: global
     euint64 private _balance;
 
     function seedBalance(uint64 value) external {
         _balance = euint64(value);
-        FHE.allowGlobal(_balance);
     }
 
     function balance() external view returns (euint64) {
@@ -55,14 +58,7 @@ contract MockFHESafeMath {
         updated = u;
         spent = sp;
 
-        FHE.allowGlobal(s);
         // `tryDecrease`'s uninitialized-balance/-delta branch can hand back the zero handle; the
         // ACL calls would revert on it, and there is nothing to grant anyway.
-        if (FHE.isInitialized(u)) {
-            FHE.allowGlobal(u);
-        }
-        if (FHE.isInitialized(sp)) {
-            FHE.allowGlobal(sp);
-        }
     }
 }
